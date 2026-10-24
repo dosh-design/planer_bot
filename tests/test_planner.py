@@ -146,3 +146,21 @@ def test_delete_user_keeps_shared_items_for_partner(couple):
     assert len(rows) == 2 and all(r["assignee_id"] is None for r in rows)
     db.delete_user(1)
     assert not db.items(couple)
+
+
+def test_overdue_and_long_hanging_tasks_burn(couple):
+    today = NOW.date()
+    late = db.item(db.add_item(couple, 1, "task", "Оплатить интернет", 1, "2026-10-20"), couple)
+    assert planner.is_hot(late, today) and planner.when_text(late, today) == "просрочено на 2 дня"
+    assert planner.line(late, today).startswith("🔥")
+    yesterday = db.item(db.add_item(couple, 1, "event", "Кино", None, "2026-10-21"), couple)
+    assert planner.when_text(yesterday, today) == "просрочено со вчера"
+    fresh = db.item(db.add_item(couple, 1, "task", "Позвонить маме", 1, "2026-10-22"), couple)
+    assert not planner.is_hot(fresh, today)
+    rows, _ = planner.add_text(1, "Ты обещал вкрутить лампочку")
+    _age(rows[0]["id"], 6)
+    assert not planner.is_hot(db.item(rows[0]["id"], couple), today)
+    _age(rows[0]["id"], 7)
+    assert planner.is_hot(db.item(rows[0]["id"], couple), today)
+    busy = db.item(db.add_item(couple, 2, "busy", "Баня", 2, "2026-10-18"), couple)
+    assert not planner.is_hot(busy, today)  # someone's past football is not a fire

@@ -44,6 +44,7 @@ def _item(row, today) -> dict:
         "id": row["id"], "kind": row["kind"], "text": row["text"], "status": row["status"],
         "assignee": row["assignee_id"], "assignee_name": planner.name(row["assignee_id"]),
         "author": row["author_id"], "when": planner.when_text(row, today), "day": row["day"],
+        "hot": planner.is_hot(row, today),
         "warnings": planner.warnings(row),
     }
 

@@ -13,6 +13,7 @@ from config import config
 
 WEEKLY = ["каждый понедельник", "каждый вторник", "каждую среду", "каждый четверг", "каждую пятницу",
           "каждую субботу", "каждое воскресенье"]
+HOT_AFTER_DAYS = 7
 ICONS = {"task": "🔧", "buy": "🛒", "busy": "🚫", "event": "💞"}
 
 
@@ -43,12 +44,29 @@ def assignee_for(uid: int, who: str) -> int | None:
     return uid
 
 
+def hangs_days(row, today: dt.date) -> int:
+    return (today - dt.date.fromisoformat(row["created"][:10])).days
+
+
+def is_hot(row, today: dt.date | None = None) -> bool:
+    """Burning: a chore or plan past its date, or a promise without a date hanging longer than HOT_AFTER_DAYS."""
+    today = today or db.local_now().date()
+    if row["kind"] not in ("task", "event") or row["status"] != "open":
+        return False
+    if row["day"]:
+        return row["day"] < today.isoformat()
+    return row["kind"] == "task" and hangs_days(row, today) >= HOT_AFTER_DAYS
+
+
 def when_text(row, today: dt.date | None = None) -> str:
     today = today or db.local_now().date()
     if row["weekday"] is not None:
         return WEEKLY[row["weekday"]]
+    if row["kind"] in ("task", "event") and row["day"] and row["day"] < today.isoformat():
+        late = (today - dt.date.fromisoformat(row["day"])).days
+        return "просрочено со вчера" if late == 1 else f"просрочено на {jokes.plural_days(late)}"
     if row["kind"] == "task" and not row["day"]:
-        hangs = (today - dt.date.fromisoformat(row["created"][:10])).days
+        hangs = hangs_days(row, today)
         if hangs >= 2:  # the quiet sarcasm of the list itself
             return f"висит {jokes.plural_days(hangs)}"
     return parser.human_date(row["day"], row["time"], today)
@@ -56,7 +74,8 @@ def when_text(row, today: dt.date | None = None) -> str:
 
 def line(row, today: dt.date | None = None) -> str:
     """«🔧 Вкрутить лампочку · Вася · сб 26.10»"""
-    parts = [f"{ICONS[row['kind']]} {esc(row['text'])}"]
+    icon = "🔥" if is_hot(row, today) else ICONS[row["kind"]]
+    parts = [f"{icon} {esc(row['text'])}"]
     if row["kind"] != "buy":
         parts.append(esc(name(row["assignee_id"])))
     w = when_text(row, today)

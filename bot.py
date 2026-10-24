@@ -128,12 +128,16 @@ async def tasks(msg: Message) -> None:
         return
     today = db.local_now().date()
     p = db.partner(u["id"])
+    hot = [r for r in rows if planner.is_hot(r, today)]
+    hot_ids = {r["id"] for r in hot}
+    cold = [r for r in rows if r["id"] not in hot_ids]
     parts = [
-        _section("Твои", [r for r in rows if r["assignee_id"] == u["id"]], today),
-        _section(f"Дела: {esc(p['name'])}" if p else "Партнёра", [r for r in rows if p and r["assignee_id"] == p["id"]], today),
-        _section("Общие", [r for r in rows if r["assignee_id"] is None], today),
+        _section("🔥 ГОРИТ", hot, today),
+        _section("Твои", [r for r in cold if r["assignee_id"] == u["id"]], today),
+        _section(f"Дела: {esc(p['name'])}" if p else "Партнёра", [r for r in cold if p and r["assignee_id"] == p["id"]], today),
+        _section("Общие", [r for r in cold if r["assignee_id"] is None], today),
     ]
-    buttons = [[(f"✅ {r['text'][:28]}", f"done:{r['id']}")] for r in rows[:15]]
+    buttons = [[(f"✅ {r['text'][:28]}", f"done:{r['id']}")] for r in (hot + cold)[:15]]
     await msg.answer("\n\n".join(x for x in parts if x), reply_markup=kb(buttons))
 
 

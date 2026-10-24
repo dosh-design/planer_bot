@@ -14,7 +14,7 @@
   --sage:#76A56B; --sage-soft:#E5F0DF; --rose:#DD6F86; --rose-soft:#FBE3E8;
   --lav:#8C7FD1; --lav-soft:#ECE8FA; --sky:#6FA3C8; --sky-soft:#E1EEF7;
   --hero1:#FFD9B8; --hero2:#FFE9C4; --shadow:0 6px 18px rgba(140,90,50,.08), 0 1px 2px rgba(140,90,50,.06);
-  --window:#FFD66B;
+  --window:#FFD66B; --hot:#E5383B; --hot-soft:#FFE3E0; --hot-glow:rgba(229,56,59,.18);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -22,7 +22,7 @@
     --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
     --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
     --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-    --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266;
+    --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
   }
 }
 :root[data-theme="dark"]{
@@ -30,7 +30,7 @@
   --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
   --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
   --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-  --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266;
+  --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:700 15px/1.4 Nunito,system-ui,sans-serif;padding:0 16px 130px;
@@ -85,6 +85,16 @@ h3 small{font-weight:700;color:var(--muted);font-size:12px}
 .chip.both{background:var(--rose-soft);color:var(--rose)}
 .chip.busy{background:var(--lav-soft);color:var(--lav)}
 .warn{font-size:12px;color:var(--rose);margin-top:8px;padding:8px 10px;border-radius:12px;background:var(--rose-soft);font-weight:700}
+.item.hot{background:var(--hot-soft);border:2px solid var(--hot);animation:alarm 1.8s ease-in-out infinite}
+.item.hot .blob{background:var(--paper)}
+.item.hot .text{color:var(--hot)}
+.item.hot .check{border-color:var(--hot)}
+@keyframes alarm{0%,100%{box-shadow:0 0 0 0 var(--hot-glow)}50%{box-shadow:0 0 0 7px var(--hot-glow)}}
+.chip.late{background:var(--hot);color:#fff}
+h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
+.oldest.alarm{background:var(--hot);color:#fff}
+.oldest.alarm b{color:#fff;text-decoration:underline}
+.tabs b.hot{background:var(--hot);animation:alarm 1.8s infinite}
 .check{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line);flex:none;cursor:pointer;display:grid;place-items:center;
   color:transparent;background:none;padding:0;font-size:16px;transition:all .25s}
 .check:hover{border-color:var(--sage)}
@@ -169,7 +179,8 @@ const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KI
 
 function demoState(){
   return {brand:"Обещал — сделал", me:{id:1,name:"Маша"}, partner:{id:2,name:"Дима"}, invite:"", items:[
-    {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Дима",author:1,when:"висит 14 дней",warnings:[]},
+    {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Дима",author:1,when:"висит 14 дней",hot:true,warnings:[]},
+    {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Маша",author:2,when:"просрочено на 2 дня",hot:true,warnings:[]},
     {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Маша",author:2,when:"завтра",warnings:[]},
     {id:3,kind:"event",text:"Едем к маме на дачу",assignee:null,assignee_name:"оба",author:1,when:"сб 26.10",
      warnings:["⚠️ Осторожно: сб 26.10 Дима занят(а), там «Баня с друзьями». Планировать на этот день совместное — смелый поступок."]},
@@ -221,16 +232,16 @@ function itemHtml(it){
     const who = it.assignee == null ? "вместе" : it.assignee === S.me.id ? "ты" : it.assignee_name;
     chips.push(`<span class="chip ${it.kind === "busy" ? "busy" : it.assignee == null ? "both" : ""}">${esc(who)}</span>`);
   }
-  if (it.when) chips.push(`<span class="chip ${it.when.startsWith("висит") ? "hang" : "when"}">${esc(it.when)}</span>`);
+  if (it.when) chips.push(`<span class="chip ${it.hot ? "late" : it.when.startsWith("висит") ? "hang" : "when"}">${it.hot ? "🔥 " : ""}${esc(it.when)}</span>`);
   const warn = (it.warnings || []).map(w => `<div class="warn">${esc(w)}</div>`).join("");
   const check = it.kind === "busy" ? "" : `<button class="check" data-done="${it.id}" aria-label="Сделано">♥</button>`;
-  return `<div class="item k-${it.kind}" id="i${it.id}" data-more="${it.id}"><div class="blob">${pic(it)}</div>
+  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}"><div class="blob">${pic(it)}</div>
     <div class="body"><div class="text">${esc(it.text)}</div>${chips.length ? `<div class="meta">${chips.join("")}</div>` : ""}${warn}</div>${check}</div>`;
 }
 
-function group(title, items, dot){
+function group(title, items, dot, cls){
   if (!items.length) return "";
-  return `<h3>${dot || ""}${esc(title)} <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
+  return `<h3 class="${cls || ""}">${dot || ""}${esc(title)} <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
 }
 const dot = (name, color) => `<span class="dot" style="background:var(${color})">${initial(name)}</span>`;
 
@@ -240,9 +251,12 @@ function render(){
   $("pair").innerHTML = `<span class="ava me">${initial(me.name)}</span>` +
     (p ? `<span class="ava you">${initial(p.name)}</span><span class="heart">♥</span><span class="names">${esc(me.name)} и ${esc(p.name)}</span>`
        : `<span class="ava wait">?</span><span class="names">ждём вторую половину</span>`);
+  const hot = S.items.filter(i => i.hot);
   const hanging = S.items.filter(i => i.kind === "task" && /^висит/.test(i.when || ""))
                          .sort((a, b) => parseInt(b.when.slice(6)) - parseInt(a.when.slice(6)))[0];
-  $("oldest").innerHTML = hanging ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
+  $("oldest").innerHTML = hot.length
+    ? `<div class="oldest alarm">🔥 Горит: <b>${hot.length}</b> ${hot.length === 1 ? "дело" : hot.length < 5 ? "дела" : "дел"}. Хуже всех: <b>${esc(hot[0].text.toLowerCase())}</b>, ${esc(hot[0].when)}</div>`
+    : hanging ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
   $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p>Позови свою половину, иначе напоминать будет некому. Бот уже точит сарказм 😏</p><button class="btn" id="share">Позвать</button></div>` : "";
   if ($("share")) $("share").onclick = () => {
     const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер 🏡");
@@ -250,6 +264,7 @@ function render(){
   };
   const by = k => S.items.filter(i => k === "tasks" ? (i.kind === "task" || i.kind === "event") : i.kind === k);
   $("n-tasks").textContent = by("tasks").length || "";
+  $("n-tasks").classList.toggle("hot", hot.length > 0);
   $("n-buy").textContent = by("buy").length || "";
   document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
   const items = by(tab);
@@ -260,9 +275,11 @@ function render(){
                busy:["🛋","Все дома, никто не занят.<br>Например: «по четвергам у меня футбол»."]}[tab];
     html = `<div class="empty"><div class="big">${e[0]}</div>${e[1]}</div>`;
   } else if (tab === "tasks") {
-    html = group("Твои дела", items.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
-         + (p ? group(`Дела: ${p.name}`, items.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "")
-         + group("Вместе", items.filter(i => i.assignee == null), `<span class="dot" style="background:var(--rose)">♥</span>`);
+    const cold = items.filter(i => !i.hot);
+    html = group("ГОРИТ", items.filter(i => i.hot), "🔥", "hot")
+         + group("Твои дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
+         + (p ? group(`Дела: ${p.name}`, cold.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "")
+         + group("Вместе", cold.filter(i => i.assignee == null), `<span class="dot" style="background:var(--rose)">♥</span>`);
   } else if (tab === "busy") {
     html = group(me.name, items.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
          + (p ? group(p.name, items.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "");
