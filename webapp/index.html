@@ -61,9 +61,9 @@ button{font-family:inherit}
 .btn{border:0;border-radius:16px;background:var(--terra);color:#fff;font-weight:800;font-size:14px;padding:11px 16px;cursor:pointer}
 
 .tabs{display:flex;gap:6px;background:var(--paper);padding:5px;border-radius:20px;margin:14px 0 6px;position:sticky;top:8px;z-index:2;box-shadow:var(--shadow)}
-.tabs button{flex:1;border:0;background:none;color:var(--muted);font-weight:800;font-size:13px;padding:10px 4px;border-radius:15px;cursor:pointer;white-space:nowrap}
+.tabs button{flex:1;border:0;background:none;color:var(--muted);font-weight:800;font-size:12.5px;padding:10px 2px;border-radius:15px;cursor:pointer;white-space:nowrap}
 .tabs button.on{background:var(--honey-soft);color:var(--ink)}
-.tabs b{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--terra);color:#fff;font-size:11px;line-height:18px}
+.tabs b{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:9px;background:var(--terra);color:#fff;font-size:11px;line-height:18px}
 .tabs b:empty{display:none}
 
 h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--ink);margin:20px 4px 10px}
@@ -94,12 +94,31 @@ h3 small{font-weight:700;color:var(--muted);font-size:12px}
 h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
 .oldest.alarm{background:var(--hot);color:#fff}
 .oldest.alarm b{color:#fff;text-decoration:underline}
-.tabs b.hot{background:var(--hot);animation:alarm 1.8s infinite}
+.tabs b.hot{background:var(--hot)}
 .check{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line);flex:none;cursor:pointer;display:grid;place-items:center;
   color:transparent;background:none;padding:0;font-size:16px;transition:all .25s}
 .check:hover{border-color:var(--sage)}
 .item.done .check{background:var(--sage);border-color:var(--sage);color:#fff;transform:scale(1.1)}
 
+.cal{background:var(--paper);border-radius:26px;padding:14px 12px 12px;margin-top:16px;box-shadow:var(--shadow)}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px}
+.cal-head b{font-size:17px;font-weight:900;text-transform:capitalize}
+.cal-head button{border:0;background:var(--honey-soft);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-wd{text-align:center;font-size:11px;color:var(--muted);padding-bottom:4px}
+.cal-wd.we{color:var(--terra)}
+.cal-day{border:0;background:none;color:var(--ink);border-radius:14px;padding:6px 0 5px;min-height:48px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font:800 14px Nunito,sans-serif}
+.cal-day.out{visibility:hidden}
+.cal-day.today{background:var(--honey-soft)}
+.cal-day.sel{background:var(--terra);color:#fff}
+.cal-day.hot:not(.sel){color:var(--hot)}
+.dots{display:flex;gap:3px;height:6px}
+.dots i{width:6px;height:6px;border-radius:50%;display:block}
+.d-task{background:var(--honey)} .d-event{background:var(--rose)} .d-busy{background:var(--lav)} .d-hot{background:var(--hot)}
+.cal-day.sel .dots i{box-shadow:0 0 0 1.5px #fff}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:11px;color:var(--muted);margin-top:10px}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:7px;height:7px;border-radius:50%;display:block}
 .empty{text-align:center;color:var(--muted);padding:36px 24px;background:var(--paper);border-radius:26px;margin-top:16px;box-shadow:var(--shadow)}
 .empty .big{font-size:46px;margin-bottom:8px}
 
@@ -144,6 +163,7 @@ h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
 <div id="invite"></div>
 <nav class="tabs" id="tabs">
   <button data-tab="tasks" class="on">🏡 Дела<b id="n-tasks"></b></button>
+  <button data-tab="month">📅 Месяц</button>
   <button data-tab="buy">🧺 Покупки<b id="n-buy"></b></button>
   <button data-tab="busy">⚽ Заняты</button>
 </nav>
@@ -158,7 +178,7 @@ h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
 const tg = window.Telegram && Telegram.WebApp;
 const initData = tg ? tg.initData : "";
 const DEMO = !initData;
-let S = null, tab = "tasks";
+let S = null, tab = "tasks", calMonth = null, calDay = null;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("bg_color"); } catch(e){} }
 
 const $ = id => document.getElementById(id);
@@ -180,17 +200,17 @@ const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KI
 function demoState(){
   return {brand:"Обещал — сделал", me:{id:1,name:"Маша"}, partner:{id:2,name:"Дима"}, invite:"", items:[
     {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Дима",author:1,when:"висит 14 дней",hot:true,warnings:[]},
-    {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Маша",author:2,when:"просрочено на 2 дня",hot:true,warnings:[]},
-    {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Маша",author:2,when:"завтра",warnings:[]},
-    {id:3,kind:"event",text:"Едем к маме на дачу",assignee:null,assignee_name:"оба",author:1,when:"сб 26.10",
-     warnings:["⚠️ Осторожно: сб 26.10 Дима занят(а), там «Баня с друзьями». Планировать на этот день совместное — смелый поступок."]},
-    {id:4,kind:"task",text:"Повесить полку в прихожей",assignee:2,assignee_name:"Дима",author:1,when:"вс 27.10 в 12:00",warnings:[]},
+    {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Маша",author:2,when:"просрочено на 2 дня",day:"2026-10-22",hot:true,warnings:[]},
+    {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Маша",author:2,when:"завтра",day:"2026-10-25",warnings:[]},
+    {id:3,kind:"event",text:"Едем к маме на дачу",assignee:null,assignee_name:"оба",author:1,when:"сб 31.10",day:"2026-10-31",
+     warnings:["⚠️ Осторожно: сб 31.10 Дима занят(а), там «Баня с друзьями». Планировать на этот день совместное — смелый поступок."]},
+    {id:4,kind:"task",text:"Повесить полку в прихожей",assignee:2,assignee_name:"Дима",author:1,when:"вс 01.11 в 12:00",day:"2026-11-01",warnings:[]},
     {id:5,kind:"buy",text:"Батарейки AA",assignee:null,assignee_name:"оба",author:1,when:"",warnings:[]},
     {id:6,kind:"buy",text:"Молоко",assignee:null,assignee_name:"оба",author:2,when:"",warnings:[]},
     {id:7,kind:"buy",text:"Корм для кота",assignee:null,assignee_name:"оба",author:1,when:"",warnings:[]},
-    {id:8,kind:"busy",text:"Футбол",assignee:2,assignee_name:"Дима",author:2,when:"каждый четверг",warnings:[]},
-    {id:9,kind:"busy",text:"Баня с друзьями",assignee:2,assignee_name:"Дима",author:2,when:"сб 26.10",warnings:[]},
-    {id:10,kind:"busy",text:"Маникюр",assignee:1,assignee_name:"Маша",author:1,when:"пт 25.10 в 18:00",warnings:[]},
+    {id:8,kind:"busy",text:"Футбол",assignee:2,assignee_name:"Дима",author:2,when:"каждый четверг",weekday:3,warnings:[]},
+    {id:9,kind:"busy",text:"Баня с друзьями",assignee:2,assignee_name:"Дима",author:2,when:"сб 31.10",day:"2026-10-31",warnings:[]},
+    {id:10,kind:"busy",text:"Маникюр",assignee:1,assignee_name:"Маша",author:1,when:"пт 30.10 в 18:00",day:"2026-10-30",warnings:[]},
   ]};
 }
 
@@ -267,6 +287,7 @@ function render(){
   $("n-tasks").classList.toggle("hot", hot.length > 0);
   $("n-buy").textContent = by("buy").length || "";
   document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  if (tab === "month") { $("list").innerHTML = monthHtml(); return; }
   const items = by(tab);
   let html;
   if (!items.length) {
@@ -287,9 +308,45 @@ function render(){
   $("list").innerHTML = html;
 }
 
+// ---------- month calendar ----------
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const WD = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+
+function onDay(dayIso){
+  const wd = (new Date(dayIso + "T12:00").getDay() + 6) % 7;
+  return S.items.filter(i => i.kind !== "buy" && (i.day === dayIso || (i.kind === "busy" && i.weekday === wd)));
+}
+
+function monthHtml(){
+  const now = new Date();
+  if (!calMonth) calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (!calDay) calDay = iso(now);
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  const first = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  const title = calMonth.toLocaleDateString("ru-RU", {month: "long", year: "numeric"}).replace(" г.", "");
+  let cells = WD.map((w, i) => `<div class="cal-wd${i > 4 ? " we" : ""}">${w}</div>`).join("");
+  for (let i = 0; i < first; i++) cells += `<div class="cal-day out"></div>`;
+  for (let d = 1; d <= days; d++) {
+    const key = iso(new Date(y, m, d)), list = onDay(key);
+    const kinds = [...new Set(list.map(i => i.hot ? "hot" : i.kind))].slice(0, 4);
+    const cls = [key === iso(now) ? "today" : "", key === calDay ? "sel" : "", kinds.includes("hot") ? "hot" : ""].join(" ");
+    cells += `<button class="cal-day ${cls}" data-day="${key}">${d}<span class="dots">${kinds.map(k => `<i class="d-${k}"></i>`).join("")}</span></button>`;
+  }
+  const sel = onDay(calDay), sd = new Date(calDay + "T12:00");
+  const label = sd.toLocaleDateString("ru-RU", {weekday: "long", day: "numeric", month: "long"});
+  const list = sel.length ? sel.map(itemHtml).join("") : `<div class="empty" style="margin-top:0">Свободный день. Подозрительно.</div>`;
+  return `<div class="cal"><div class="cal-head"><button data-cal="-1" aria-label="Назад">‹</button><b>${esc(title)}</b><button data-cal="1" aria-label="Вперёд">›</button></div>
+    <div class="cal-grid">${cells}</div>
+    <div class="legend"><span><i class="d-task"></i>дела</span><span><i class="d-event"></i>вместе</span><span><i class="d-busy"></i>кто-то занят</span><span><i class="d-hot"></i>горит</span></div></div>
+    <h3 style="text-transform:none">📌 ${esc(label)} <small>${sel.length || ""}</small></h3>${list}`;
+}
+
 $("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { tab = b.dataset.tab; render(); } };
 
 $("list").onclick = async e => {
+  const nav = e.target.closest("[data-cal]"), day = e.target.closest("[data-day]");
+  if (nav) { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + +nav.dataset.cal, 1); render(); return; }
+  if (day) { calDay = day.dataset.day; render(); return; }
   const d = e.target.closest("[data-done]");
   if (d) {
     const id = +d.dataset.done, el = $("i" + id);
