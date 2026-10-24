@@ -275,9 +275,9 @@ function render(){
                busy:["🛋","Все дома, никто не занят.<br>Например: «по четвергам у меня футбол»."]}[tab];
     html = `<div class="empty"><div class="big">${e[0]}</div>${e[1]}</div>`;
   } else if (tab === "tasks") {
-    const cold = items.filter(i => !i.hot);
-    html = group("ГОРИТ", items.filter(i => i.hot), "🔥", "hot")
-         + group("Твои дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
+    // Overdue stays in its owner's group, but goes first and glares red.
+    const cold = [...items].sort((x, y) => (y.hot ? 1 : 0) - (x.hot ? 1 : 0));
+    html = group("Твои дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
          + (p ? group(`Дела: ${p.name}`, cold.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "")
          + group("Вместе", cold.filter(i => i.assignee == null), `<span class="dot" style="background:var(--rose)">♥</span>`);
   } else if (tab === "busy") {
