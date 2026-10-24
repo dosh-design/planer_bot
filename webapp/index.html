@@ -35,6 +35,12 @@
   --r-s:10px; --r-m:14px; --r-l:18px; --r-xl:24px; --r-full:999px;
   --ease:cubic-bezier(.2,.8,.2,1); --fast:.16s; --base:.26s;
 }
+:root{
+  /* Safe areas, one source for every edge: the browser's env() on its own, Telegram's insets in full screen
+     (set by insets() in the script). max(), never a sum: the same notch is not counted twice. */
+  --safe-top:max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
+  --safe-bottom:max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px));
+}
 :root[data-theme="dark"]{
   --bg:#1A1512; --surface:#241D19; --surface-2:#2E2520;
   --text:#F4EAE2; --text-2:#B5A397; --text-3:#7E6E63;
@@ -66,7 +72,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:var(--t-body)}
 /* App shell: the list scrolls in its own area and the composer sits BELOW it, not on top of it.
    Height follows the visible viewport (keyboard, Telegram's expand), see fit() in the script. */
 .app{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-h,100%);display:flex;flex-direction:column;
-  padding-top:var(--inset-top,0px)}  /* full screen in Telegram: room for the status bar and Telegram's own buttons */
+  padding-top:var(--safe-top)}  /* full screen in Telegram: room for the status bar and Telegram's own buttons */
 .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding:0 var(--s4) var(--s3)}
 button{font:inherit;color:inherit}
@@ -159,7 +165,7 @@ main{animation:in var(--base) var(--ease)}
 .proj-card .pbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .proj-card b{font:var(--t-title);overflow-wrap:anywhere}
 .proj-card small{font:var(--t-caption);color:var(--text-2);overflow-wrap:anywhere}
-.proj-card .bar{margin:4px 0 0}
+.proj-card .progress{margin:4px 0 0}
 .proj-card .go{width:16px;height:16px;color:var(--text-2);flex:none}
 .back{display:inline-flex;align-items:center;gap:4px;margin-top:var(--s3);min-height:40px;padding:0 var(--s2) 0 0;border:0;background:none;color:var(--brand-ink);font:700 14px/1 var(--font);cursor:pointer}
 .back .ic{width:18px;height:18px}
@@ -171,7 +177,7 @@ main{animation:in var(--base) var(--ease)}
 .proj-page .people{display:flex}
 .proj-page .people .ava{width:24px;height:24px;font-size:11px;border:2px solid var(--surface);margin-right:-6px}
 .proj-page .people + span{margin-left:8px}
-.proj-page .bar{margin:0}
+.proj-page .progress{margin:0}
 .proj-page .addto{width:40px;height:40px;border-radius:var(--r-full);border:0;background:var(--surface-2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
 .proj-page .addto .ic{width:18px;height:18px}
 .card.done-row{opacity:.7;align-items:center}
@@ -183,8 +189,9 @@ main{animation:in var(--base) var(--ease)}
 .sec.proj{margin-bottom:var(--s1)}
 .sec .addto{margin-left:auto;width:36px;height:36px;border-radius:var(--r-full);border:0;background:var(--surface-2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
 .sec .addto .ic{width:18px;height:18px}
-.bar{height:6px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden;margin:0 0 var(--s2)}
-.bar i{display:block;height:100%;background:var(--success);border-radius:inherit}
+/* a progress line; not .bar, which is the header row (sharing the name squeezed the header to 6 px) */
+.progress{height:6px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden;margin:0 0 var(--s2)}
+.progress i{display:block;height:100%;background:var(--success);border-radius:inherit}
 .sec .ava .ic{width:14px;height:14px;stroke-width:2.2}
 /* «Семья против бытового хаоса»: one shared score, never a partner-vs-partner table */
 .score-card{display:flex;align-items:center;gap:var(--s3);width:100%;margin-top:var(--s3);padding:var(--s3) var(--s4);text-align:left;
@@ -206,7 +213,7 @@ main{animation:in var(--base) var(--ease)}
 .season .vs span{font:700 13px/1.2 var(--font);color:var(--text-2)}
 .season .vs .colon{font:800 30px/1 var(--font);color:var(--text-3)}
 .season p{margin:6px 0 0;font:500 14px/1.45 var(--font);color:var(--text-2)}
-.season .bar i{background:var(--brand)}
+.season .progress i{background:var(--brand)}
 .match{display:flex;align-items:center;gap:var(--s2);padding:10px 0;border-top:1px solid var(--border);font:600 14px/1.3 var(--font)}
 .match:first-of-type{border-top:0}
 .match span{flex:1;min-width:0;color:var(--text-2)}
@@ -326,7 +333,7 @@ main{animation:in var(--base) var(--ease)}
 @keyframes shim{to{transform:translateX(100%)}}
 
 /* ============ composer: a block under the list, never over it ============ */
-.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), env(safe-area-inset-bottom), var(--inset-bottom,0px));background:var(--bg);
+.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), var(--safe-bottom));background:var(--bg);
   border-top:1px solid var(--border)}
 .kb-open .composer{padding-bottom:var(--s2)}  /* the home-indicator inset sits under the keyboard */
 .composer form{display:flex;gap:var(--s2);align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
@@ -350,7 +357,7 @@ main{animation:in var(--base) var(--ease)}
 /* ============ sheet & toast ============ */
 .sheet{position:fixed;inset:0;z-index:6;background:var(--scrim);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity var(--base)}
 .sheet.on{opacity:1;pointer-events:auto}
-.sheet > div{width:100%;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:10px var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));
+.sheet > div{width:100%;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:10px var(--s4) calc(var(--s4) + var(--safe-bottom));
   transform:translateY(100%);transition:transform var(--base) var(--ease);max-height:85vh;overflow:auto}
 .sheet.on > div{transform:none}
 .grab{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto var(--s3)}
@@ -365,7 +372,7 @@ main{animation:in var(--base) var(--ease)}
 .opt .cur .ic{color:var(--success-ink);width:16px;height:16px}
 .opt.danger,.opt.danger .ic{color:var(--danger-ink)}
 .opt.cancel{justify-content:center;border:0;color:var(--text-2)}
-.toast{position:fixed;left:var(--s4);right:var(--s4);top:calc(var(--s3) + env(safe-area-inset-top));z-index:9;display:flex;gap:var(--s3);align-items:center;
+.toast{position:fixed;left:var(--s4);right:var(--s4);top:calc(var(--s3) + var(--safe-top));z-index:9;display:flex;gap:var(--s3);align-items:center;
   background:var(--text);color:var(--bg);border-radius:var(--r-m);padding:var(--s3) var(--s4);font:600 14px/1.4 var(--font);box-shadow:var(--shadow-2);
   transform:translateY(calc(-100% - 40px));transition:transform var(--base) var(--ease)}
 .toast.on{transform:none}
@@ -774,7 +781,7 @@ function seasonHtml(){
   return back + `<div class="season"><h2>Наш сезон</h2><p>Семья против бытового хаоса · неделя ${esc(cur.label)}</p>
       <div class="vs"><div class="fam"><b>${cur.family}</b><span>Семья</span></div><div class="colon">:</div><div><b>${cur.chaos}</b><span>Бытовой хаос</span></div></div>
       <p style="text-align:center;margin-bottom:var(--s3)">${esc(cur.status)}</p>
-      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло дней недели: ${Math.min(passed, 7)} из 7"><i style="width:${pct}%"></i></div>
+      <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло дней недели: ${Math.min(passed, 7)} из 7"><i style="width:${pct}%"></i></div>
       <p>${cur.days_left > 1 ? `До конца матча ${cur.days_left} ${plural(cur.days_left, "день", "дня", "дней")}. Итог придёт в понедельник утром.` : "Последний день матча. Итог придёт в понедельник утром."}</p></div>`
     + `<div class="sec"><h2>Прошлые матчи</h2>${SEASON.history.length ? `<span class="count">${SEASON.history.length}</span>` : ""}</div>`
     + (SEASON.history.length
@@ -820,7 +827,7 @@ function tasksHtml(){
 // ---------- projects ----------
 const PROJECT_IDEAS = ["Дом и ремонт", "Отпуск", "Платежи", "Подготовка к празднику"];
 const progressBar = pr => { const pct = Math.round(100 * pr.done / Math.max(pr.total, 1));
-  return `<div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(pr.name)}: сделано ${pr.done} из ${pr.total}"><i style="width:${pct}%"></i></div>`; };
+  return `<div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(pr.name)}: сделано ${pr.done} из ${pr.total}"><i style="width:${pct}%"></i></div>`; };
 function projectRow(pr){
   const next = S.items.find(i => i.project_id === pr.id);
   return `<button class="proj-card" data-project="${pr.id}">
