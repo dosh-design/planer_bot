@@ -1,7 +1,9 @@
 """Telegram chat: invite the partner, add items by text, voice or a forwarded message, lists, reminders."""
+import asyncio
 import logging
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, TelegramServerError
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     CallbackQuery,
@@ -14,6 +16,7 @@ from aiogram.types import (
 )
 
 import db
+import parser
 import planner
 import stt
 from config import config
@@ -50,18 +53,47 @@ def menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder="Что надо не забыть?")
 
 
+TRANSIENT = (TelegramRetryAfter, TelegramNetworkError, TelegramServerError)
+RETRY_PAUSE = 1.0
+
+
 async def send(bot: Bot, outs: list[Out]) -> None:
+    """Deliver messages one by one. A reminder is marked as sent before it gets here, so a hiccup on
+    Telegram's side (flood limit, network, 5xx) gets one more try instead of silently losing it."""
     for o in outs:
-        try:
-            await bot.send_message(o.chat_id, o.text, reply_markup=kb(o.buttons))
-        except Exception as e:  # the partner blocked the bot or never started it
-            log.info("send to %s failed: %s", o.chat_id, type(e).__name__)
+        for attempt in (1, 2):
+            try:
+                await bot.send_message(o.chat_id, o.text, reply_markup=kb(o.buttons))
+                break
+            except TRANSIENT as e:
+                if attempt == 2:
+                    log.warning("send to %s failed twice: %s", o.chat_id, type(e).__name__)
+                    break
+                wait = getattr(e, "retry_after", None) or RETRY_PAUSE
+                await asyncio.sleep(min(float(wait), 30))
+            except Exception as e:  # the partner blocked the bot or never started it: no point retrying
+                log.info("send to %s failed: %s", o.chat_id, type(e).__name__)
+                break
 
 
-async def invite_link(bot: Bot, uid: int) -> str:
+async def invite_link(bot: Bot, uid: int, fresh: bool = False) -> str:
+    """A one-time link (48 h) into the user's couple; "" when the couple is already full."""
+    code = db.invite_code(uid, fresh)
+    if not code:
+        return ""
     if "username" not in _me:
         _me["username"] = (await bot.get_me()).username
-    return f"https://t.me/{_me['username']}?start={db.couple_code(uid)}"
+    return f"https://t.me/{_me['username']}?start={code}"
+
+
+INVITE_RULES = "Ссылка одноразовая и работает 48 часов. Не публикуй её: по ней можно попасть в ваш планер."
+JOIN_FAIL = {
+    "full": "В этой паре уже двое. Планер для двоих, третий тут лишний 🙂",
+    "used": "Эта ссылка уже использована. Попроси партнёра прислать новую: /invite.",
+    "expired": "Ссылка устарела: приглашения живут 48 часов. Попроси партнёра прислать новую: /invite.",
+    "revoked": "Эту ссылку уже заменили новой. Попроси партнёра прислать свежую: /invite.",
+    "unknown": "Ссылка не подошла. Попроси партнёра прислать новую: /invite.",
+}
 
 
 def display_name(msg: Message) -> str:
@@ -81,16 +113,18 @@ async def start(msg: Message, command: CommandObject, bot: Bot) -> None:
                              reply_markup=menu())
             await send(bot, [Out(p["id"], f"🎉 {esc(display_name(msg))} теперь в вашем планере. Отговорки кончились.")])
             return
-        if result == "full":
-            await msg.answer("В этой паре уже двое. Планер для двоих, третий тут лишний 🙂", reply_markup=menu())
+        if result == "taken":
+            p = db.partner(uid)
+            await msg.answer(f"Ты уже в паре с {esc(p['name'])}, поэтому по чужой ссылке не переключаю. "
+                             "Чтобы перейти в другую пару, сначала выйди из этой: /delete.", reply_markup=menu())
             return
-        if result == "unknown":
-            await msg.answer("Ссылка не подошла. Попроси партнёра прислать новую.", reply_markup=menu())
+        if result in JOIN_FAIL:
+            await msg.answer(JOIN_FAIL[result], reply_markup=menu())
             return
-    link = await invite_link(bot, uid)
     partner = db.partner(uid)
     pair = f"Вы в паре с {esc(partner['name'])}." if partner else (
-        f"Сначала позови вторую половину, без неё напоминать некому. Перешли эту ссылку:\n{link}")
+        "Сначала позови вторую половину, без неё напоминать некому. Перешли эту ссылку:\n"
+        f"{await invite_link(bot, uid)}\n{INVITE_RULES}")
     await msg.answer(f"Привет! Я {esc(config.brand)}: семейный планер, который помнит всё, что вы друг другу обещали.\n\n"
                      f"{pair}\n\n{HELP}", reply_markup=menu(), disable_web_page_preview=True)
 
@@ -109,7 +143,16 @@ async def invite(msg: Message, bot: Bot) -> None:
         await msg.answer(f"Вы уже в паре с {esc(p['name'])}. Менять партнёра через бота не рекомендуем 😏")
         return
     link = await invite_link(bot, msg.from_user.id)
-    await msg.answer(f"Перешли эту ссылку своей половине:\n{link}", disable_web_page_preview=True)
+    await msg.answer(f"Перешли эту ссылку своей половине:\n{link}\n\n{INVITE_RULES}", disable_web_page_preview=True,
+                     reply_markup=kb([[("🔄 Новая ссылка, старую отменить", "newinvite")]]))
+
+
+@router.callback_query(F.data == "newinvite")
+async def cb_newinvite(cb: CallbackQuery, bot: Bot) -> None:
+    link = await invite_link(bot, cb.from_user.id, fresh=True)
+    await cb.answer("Старая ссылка больше не работает" if link else "Вы уже в паре")
+    if link and cb.message:
+        await cb.message.answer(f"Новая ссылка:\n{link}\n\n{INVITE_RULES}", disable_web_page_preview=True)
 
 
 def _section(title: str, rows, today) -> str:
@@ -194,12 +237,30 @@ def _user(msg: Message):
     return u
 
 
+CHAT_REPLY = ("Я записываю дела, покупки и планы, а поболтать лучше друг с другом 🙂\n"
+              "Например: «вкрути лампочку до субботы», «купить молоко», «по четвергам у меня футбол».")
+
+
 async def _reply_added(msg: Message, bot: Bot, text: str, forwarded: str = "") -> None:
     u = _user(msg)
-    rows, notes = planner.add_text(u["id"], text, forwarded)
+    intent = parser.intent(text, db.local_now().date())
+    if intent == "chat":
+        await msg.answer(CHAT_REPLY)
+        return
+    if intent == "unclear":
+        # Ask instead of guessing; the phrase waits in kv until a button is pressed.
+        db.kv_set(f"pending:{u['id']}", text[:300])
+        await msg.answer(f"«{esc(text[:100])}» — это что?", reply_markup=kb([[("📝 Дело", "force:task"), ("🛒 Покупка", "force:buy")],
+                                                                             [("Ничего, просто так", "force:no")]]))
+        return
+    rows, notes = await planner.add_text_async(u["id"], text, forwarded)
     if not rows:
         await msg.answer("Не понял, что записать. Скажи проще: что сделать и когда.")
         return
+    await _confirm(msg, u, rows, notes, bot)
+
+
+async def _confirm(msg: Message, u, rows, notes, bot: Bot) -> None:
     today = db.local_now().date()
     for r in rows:
         warn = planner.warnings(r)
@@ -220,6 +281,12 @@ async def voice(msg: Message, bot: Bot) -> None:
     if not config.ai_enabled:
         await msg.answer("Голос пока не подключён. Напиши текстом.")
         return
+    key = f"voice:{msg.from_user.id}:{db.local_now().date().isoformat()}"
+    used = int(db.kv_get(key) or 0)
+    if used >= config.voice_daily_limit:
+        await msg.answer("На сегодня голосовых хватит, давай текстом. Завтра снова выслушаю.")
+        return
+    db.kv_set(key, str(used + 1))
     try:
         audio = await bot.download(msg.voice)
         text = await stt.recognize(audio.read())
@@ -235,13 +302,15 @@ async def voice(msg: Message, bot: Bot) -> None:
 
 
 def _forwarded_name(msg: Message) -> str:
+    """The partner's name when the forwarded message is provably the partner's own (Telegram shows the sender's id).
+    A forward from anyone else, or from a hidden account, is treated as the author's own note: «я сделаю» from
+    a mother or a colleague must not land on the partner."""
     o = msg.forward_origin
-    if not o:
-        return ""
-    user = getattr(o, "sender_user", None)
-    if user and user.id == msg.from_user.id:
-        return ""
-    return (user.first_name if user else getattr(o, "sender_user_name", "")) or "партнёр"
+    user = getattr(o, "sender_user", None) if o else None
+    p = db.partner(msg.from_user.id)
+    if user and p and user.id == p["id"]:
+        return p["name"]
+    return ""
 
 
 @router.message(F.text & ~F.text.startswith("/"))
@@ -263,10 +332,39 @@ async def cb_done(cb: CallbackQuery, bot: Bot) -> None:
     await send(bot, notes)
 
 
+@router.callback_query(F.data.startswith("force:"))
+async def cb_force(cb: CallbackQuery, bot: Bot) -> None:
+    """The answer to «это что?» for a phrase too short to tell."""
+    uid, kind = cb.from_user.id, cb.data.split(":")[1]
+    text = db.kv_get(f"pending:{uid}")
+    db.kv_set(f"pending:{uid}", "")
+    if not text or kind == "no":
+        await cb.answer("Ок, ничего не записал")
+        if cb.message:
+            await cb.message.edit_reply_markup(reply_markup=None)
+        return
+    u = db.user(uid)
+    clean = text.strip()[:200]
+    rows, notes = planner.add_parsed(uid, [parser.Parsed(kind, clean[:1].upper() + clean[1:])])
+    await cb.answer("Записал")
+    if cb.message:
+        await cb.message.edit_reply_markup(reply_markup=None)
+        await _confirm(cb.message, u, rows, notes, bot)
+
+
+@router.message(Command("stats"))
+async def stats(msg: Message) -> None:
+    """Admins only (ADMIN_IDS): the goal metric, couples of two still active on day 14."""
+    if msg.from_user.id not in config.admin_ids:
+        return
+    r, s = db.retention(14), db.stats()
+    await msg.answer(f"Пар старше 14 дней: {r['couples']}, из них активны оба за 7 дней: {r['active']}.\n"
+                     f"Всего людей: {s['users']}, пар из двух: {s['couples']}, записей: {s['items']}, сделано: {s['done']}.")
+
+
 @router.callback_query(F.data.startswith("del:"))
 async def cb_del(cb: CallbackQuery) -> None:
-    u = db.user(cb.from_user.id)
-    ok = bool(u and u["couple_id"] and db.delete_item(int(cb.data.split(":")[1]), u["couple_id"]))
+    ok = planner.remove(cb.from_user.id, int(cb.data.split(":")[1]))
     await cb.answer("Удалил" if ok else "Уже удалено")
     if ok and cb.message:
         try:
@@ -290,10 +388,7 @@ async def cb_who(cb: CallbackQuery, bot: Bot) -> None:
             await cb.message.edit_text("Записал: " + planner.line(row), reply_markup=kb(planner.item_buttons(row)))
         except Exception:
             pass
-    p = db.partner(uid)
-    if p and row["assignee_id"] in (p["id"], None):
-        await send(bot, [Out(p["id"], f"📌 {esc(u['name'])} записал(а) на тебя: {planner.line(row)}",
-                             planner.item_buttons(row)[:1])])
+    await send(bot, planner.assigned_notes(uid, row))
 
 
 @router.callback_query(F.data == "forget")

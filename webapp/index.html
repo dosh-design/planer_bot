@@ -3,335 +3,633 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Обещал — сделал</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ============ design tokens ============ */
 :root{
-  --bg:#FFF7EC; --paper:#FFFDF9; --ink:#43332B; --muted:#9C877A; --line:#F1E3D2;
-  --terra:#E2703F; --terra-soft:#FCE5D8; --honey:#F2B347; --honey-soft:#FDF0D6;
-  --sage:#76A56B; --sage-soft:#E5F0DF; --rose:#DD6F86; --rose-soft:#FBE3E8;
-  --lav:#8C7FD1; --lav-soft:#ECE8FA; --sky:#6FA3C8; --sky-soft:#E1EEF7;
-  --hero1:#FFD9B8; --hero2:#FFE9C4; --shadow:0 6px 18px rgba(140,90,50,.08), 0 1px 2px rgba(140,90,50,.06);
-  --window:#FFD66B; --hot:#E5383B; --hot-soft:#FFE3E0; --hot-glow:rgba(229,56,59,.18);
+  /* colour, light. Text pairs checked for WCAG AA: --text-2 on --surface 5.2, --danger-ink on --surface 5.5 */
+  --bg:#FFF8F0; --surface:#FFFFFF; --surface-2:#FFF1DE;
+  --text:#342A25; --text-2:#7A6A5F; --text-3:#A8978A;
+  --brand:#EA754A; --brand-fill:#C4502C; --brand-ink:#B94E27; --brand-soft:#FCE6D8; --on-brand:#FFFFFF;
+  --danger:#E54848; --danger-ink:#C53030; --danger-soft:#FFF0EE;
+  --warning:#E7A93E; --warning-ink:#94620F; --warning-soft:#FFF5D9;
+  --success:#65966B; --success-ink:#3F7346; --success-soft:#EAF4E8;
+  --border:#F0E2D4; --control:#A08A7A;
+  --shadow-1:0 1px 2px rgba(52,42,37,.05);
+  --shadow-2:0 10px 30px rgba(52,42,37,.12);
+  --scrim:rgba(36,26,20,.42);
+  /* type: one family (already used by the app), four weights */
+  --font:Nunito,ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --t-display:800 26px/1.15 var(--font);
+  --t-section:800 20px/1.2 var(--font);
+  --t-title:600 16px/1.3 var(--font);
+  --t-body:500 15px/1.45 var(--font);
+  --t-caption:600 13px/1.35 var(--font);
+  --t-micro:700 11px/1.2 var(--font);
+  /* space, radius, motion */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px;
+  --r-s:10px; --r-m:14px; --r-l:18px; --r-xl:24px; --r-full:999px;
+  --ease:cubic-bezier(.2,.8,.2,1); --fast:.16s; --base:.26s;
+}
+:root[data-theme="dark"]{
+  --bg:#1A1512; --surface:#241D19; --surface-2:#2E2520;
+  --text:#F4EAE2; --text-2:#B5A397; --text-3:#7E6E63;
+  --brand:#F08A62; --brand-fill:#F08A62; --brand-ink:#F5A07E; --brand-soft:#3A2419; --on-brand:#1A1512;
+  --danger:#FF6B6B; --danger-ink:#FF8A8A; --danger-soft:#3A1D1D;
+  --warning:#F0BC5E; --warning-ink:#F0BC5E; --warning-soft:#36291A;
+  --success:#8DBF8F; --success-ink:#A3D0A5; --success-soft:#1E2B20;
+  --border:#362C26; --control:#8A786C;
+  --shadow-1:none; --shadow-2:0 10px 30px rgba(0,0,0,.45); --scrim:rgba(0,0,0,.55);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#1F1813; --paper:#2A211B; --ink:#F5E9DF; --muted:#AE9888; --line:#3A2E26;
-    --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
-    --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
-    --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-    --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
+    --bg:#1A1512; --surface:#241D19; --surface-2:#2E2520;
+    --text:#F4EAE2; --text-2:#B5A397; --text-3:#7E6E63;
+    --brand:#F08A62; --brand-fill:#F08A62; --brand-ink:#F5A07E; --brand-soft:#3A2419; --on-brand:#1A1512;
+    --danger:#FF6B6B; --danger-ink:#FF8A8A; --danger-soft:#3A1D1D;
+    --warning:#F0BC5E; --warning-ink:#F0BC5E; --warning-soft:#36291A;
+    --success:#8DBF8F; --success-ink:#A3D0A5; --success-soft:#1E2B20;
+    --border:#362C26; --control:#8A786C;
+    --shadow-1:none; --shadow-2:0 10px 30px rgba(0,0,0,.45); --scrim:rgba(0,0,0,.55);
   }
 }
-:root[data-theme="dark"]{
-  --bg:#1F1813; --paper:#2A211B; --ink:#F5E9DF; --muted:#AE9888; --line:#3A2E26;
-  --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
-  --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
-  --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-  --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
-}
+
+/* ============ base ============ */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--ink);font:700 15px/1.4 Nunito,system-ui,sans-serif;padding:0 16px 130px;
-  background-image:radial-gradient(circle at 12% 30%, var(--honey-soft) 0 120px, transparent 121px),
-                   radial-gradient(circle at 95% 75%, var(--terra-soft) 0 140px, transparent 141px);
-  background-attachment:fixed}
-button{font-family:inherit}
+html{-webkit-text-size-adjust:100%}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font:var(--t-body)}
+/* App shell: the list scrolls in its own area and the composer sits BELOW it, not on top of it.
+   Height follows the visible viewport (keyboard, Telegram's expand), see fit() in the script. */
+.app{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-h,100%);display:flex;flex-direction:column}
+.scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:0 var(--s4) var(--s3)}
+button{font:inherit;color:inherit}
+[hidden]{display:none !important}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 
-/* the hero: a little house with the couple inside */
-.hero{position:relative;margin:14px 0 6px;padding:18px 18px 16px;border-radius:28px;overflow:hidden;
-  background:linear-gradient(135deg,var(--hero1),var(--hero2));box-shadow:var(--shadow)}
-.hero svg.house{position:absolute;right:-6px;bottom:-4px;width:132px;height:118px;opacity:.95}
-.brand{font-family:Comfortaa,Nunito,sans-serif;font-size:15px;color:var(--terra);letter-spacing:.2px}
-.hello{font-size:24px;font-weight:900;line-height:1.15;margin:8px 0 12px;max-width:66%}
-.pair{display:flex;align-items:center;gap:8px}
-.ava{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:16px;color:#fff;border:3px solid var(--paper)}
-.ava.me{background:var(--terra)}
-.ava.you{background:var(--sage);margin-left:-14px}
-.ava.wait{background:var(--line);color:var(--muted);margin-left:-14px}
-.heart{color:var(--rose);font-size:18px;margin-left:-4px;animation:beat 2.4s infinite}
-@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.25)}24%{transform:scale(1)}}
-.names{font-size:14px;color:var(--ink);opacity:.8}
-.oldest{margin:12px 0 0;padding:10px 12px;border-radius:16px;background:var(--paper);font-size:13px;max-width:72%;position:relative;z-index:1}
-.oldest b{color:var(--terra)}
+/* ============ header: who and when, three counters, the next plan ============ */
+.top{padding:var(--s3) 0 0}
+.bar{display:flex;align-items:center;gap:10px}
+.mark{width:36px;height:36px;border-radius:11px;background:var(--brand);color:#fff;display:grid;place-items:center;flex:none}
+.mark .ic{width:21px;height:21px;stroke-width:2.1}
+.title-block{flex:1;min-width:0}
+h1{font:800 21px/1.15 var(--font);letter-spacing:-.4px;margin:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.date{font:var(--t-caption);color:var(--text-2);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.date::first-letter{text-transform:uppercase}
+.pair{display:flex;align-items:center;flex:none}
+.ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:800 13px/1 var(--font);
+  color:#fff;border:2px solid var(--bg);background:var(--brand-fill);flex:none}
+.pair .ava + .ava{margin-left:-9px;background:var(--success)}
+.ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control)}
 
-.invite{background:var(--paper);border:2px dashed var(--honey);border-radius:22px;padding:14px;margin:12px 0;display:flex;gap:12px;align-items:center}
-.invite p{margin:0;flex:1;font-size:13px}
-.btn{border:0;border-radius:16px;background:var(--terra);color:#fff;font-weight:800;font-size:14px;padding:11px 16px;cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2);margin-top:var(--s3)}
+.stat{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px;padding:0 var(--s3);border-radius:var(--r-m);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-1);cursor:pointer;text-align:left;
+  transition:transform var(--fast) var(--ease)}
+.stat:active{transform:scale(.97)}
+.stat span{font:600 13px/1.2 var(--font);color:var(--text-2);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.stat b{font:800 18px/1 var(--font);letter-spacing:-.3px}
+.stat.muted b{color:var(--text-3)}
+/* the only coloured counter: what needs attention; red if something is really overdue */
+.stat.hot{background:var(--warning-soft);border-color:transparent}
+.stat.hot span,.stat.hot b{color:var(--warning-ink)}
+.stat.hot.late{background:var(--danger-soft)}
+.stat.hot.late span,.stat.hot.late b{color:var(--danger-ink)}
+@media (max-width:360px){ .stat{padding:0 10px} .stat span{font-size:12px} }
 
-.tabs{display:flex;gap:6px;background:var(--paper);padding:5px;border-radius:20px;margin:14px 0 6px;position:sticky;top:8px;z-index:2;box-shadow:var(--shadow)}
-.tabs button{flex:1;border:0;background:none;color:var(--muted);font-weight:800;font-size:12.5px;padding:10px 2px;border-radius:15px;cursor:pointer;white-space:nowrap}
-.tabs button.on{background:var(--honey-soft);color:var(--ink)}
-.tabs b{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:9px;background:var(--terra);color:#fff;font-size:11px;line-height:18px}
-.tabs b:empty{display:none}
+.plan{display:flex;align-items:center;gap:var(--s2);width:100%;min-height:44px;margin-top:var(--s2);padding:0 var(--s2) 0 var(--s3);
+  border:0;border-radius:var(--r-m);background:var(--brand-soft);color:var(--text);cursor:pointer;text-align:left}
+.plan > .ic{color:var(--brand-ink);width:18px;height:18px}
+.plan span{flex:1;min-width:0;font:600 14px/1.25 var(--font);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.plan span small{font:var(--t-caption);color:var(--text-2)}
+.plan b{color:var(--brand-ink);font-weight:800}
+.plan .go{color:var(--text-2);width:16px;height:16px}
+@media (max-width:360px){ .plan{padding-top:6px;padding-bottom:6px} .plan span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical} }
+.note{display:flex;gap:var(--s2);align-items:flex-start;font:var(--t-caption);color:var(--text-2);margin-top:var(--s2)}
+.note .ic{width:16px;height:16px;margin-top:1px}
 
-h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--ink);margin:20px 4px 10px}
-h3 .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#fff}
-h3 small{font-weight:700;color:var(--muted);font-size:12px}
+.invite{display:flex;gap:var(--s3);align-items:center;background:var(--surface);border:1px dashed var(--control);
+  border-radius:var(--r-l);padding:var(--s3) var(--s4);margin-top:var(--s3)}
+.invite p{margin:0;flex:1;font:var(--t-caption);color:var(--text-2)}
+.invite p b{display:block;font:var(--t-title);color:var(--text);margin-bottom:2px}
+.btn{border:0;border-radius:var(--r-m);background:var(--brand-fill);color:var(--on-brand);font:800 14px/1 var(--font);
+  padding:0 var(--s4);min-height:44px;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:var(--surface-2);color:var(--text)}
 
-.item{background:var(--paper);border-radius:22px;padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;
-  box-shadow:var(--shadow);transition:opacity .35s,transform .35s;cursor:pointer}
-.item.gone{opacity:0;transform:scale(.92) translateY(-6px)}
-.blob{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;font-size:22px;flex:none}
-.k-task .blob{background:var(--honey-soft)} .k-event .blob{background:var(--rose-soft)}
-.k-buy .blob{background:var(--sage-soft)}  .k-busy .blob{background:var(--lav-soft)}
-.body{flex:1;min-width:0}
-.text{font-weight:800;word-wrap:break-word;line-height:1.25}
-.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.chip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:10px;background:var(--line);color:var(--muted)}
-.chip.when{background:var(--sky-soft);color:var(--sky)}
-.chip.hang{background:var(--terra-soft);color:var(--terra)}
-.chip.both{background:var(--rose-soft);color:var(--rose)}
-.chip.busy{background:var(--lav-soft);color:var(--lav)}
-.warn{font-size:12px;color:var(--rose);margin-top:8px;padding:8px 10px;border-radius:12px;background:var(--rose-soft);font-weight:700}
-.item.hot{background:var(--hot-soft);border:2px solid var(--hot);animation:alarm 1.8s ease-in-out infinite}
-.item.hot .blob{background:var(--paper)}
-.item.hot .text{color:var(--hot)}
-.item.hot .check{border-color:var(--hot)}
-@keyframes alarm{0%,100%{box-shadow:0 0 0 0 var(--hot-glow)}50%{box-shadow:0 0 0 7px var(--hot-glow)}}
-.chip.late{background:var(--hot);color:#fff}
-h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
-.oldest.alarm{background:var(--hot);color:#fff}
-.oldest.alarm b{color:#fff;text-decoration:underline}
-.tabs b.hot{background:var(--hot)}
-.check{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line);flex:none;cursor:pointer;display:grid;place-items:center;
-  color:transparent;background:none;padding:0;font-size:16px;transition:all .25s}
-.check:hover{border-color:var(--sage)}
-.item.done .check{background:var(--sage);border-color:var(--sage);color:#fff;transform:scale(1.1)}
+/* ============ tabs ============ */
+.tabs{position:sticky;top:0;z-index:3;display:flex;gap:2px;padding:4px;margin:var(--s3) 0 var(--s1);
+  background:var(--surface-2);border-radius:var(--r-m);box-shadow:0 0 0 6px var(--bg)}
+.tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 13px/1 var(--font);min-height:40px;
+  border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;
+  transition:background var(--fast),color var(--fast)}
+.tabs button .ic{width:17px;height:17px}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1)}
+/* icons only where the four labels still fit on one line */
+@media (max-width:440px){ .tabs button .ic{display:none} }
+@media (max-width:350px){ .tabs button{font-size:12px;gap:3px} }
 
-.cal{background:var(--paper);border-radius:22px;padding:10px 10px 8px;margin-top:14px;box-shadow:var(--shadow)}
-.cal-head{display:flex;align-items:center;justify-content:space-between;padding:0 2px 6px}
-.cal-title{border:0;background:none;color:var(--ink);font:900 15px Nunito,sans-serif;text-transform:capitalize;cursor:pointer;padding:6px 10px;border-radius:12px}
-.cal-title span{font-size:12px;font-weight:800;color:var(--terra);text-transform:none;margin-left:4px}
-.cal-head b{font-size:17px;font-weight:900;text-transform:capitalize}
-.cal-head > button[data-cal]{border:0;background:var(--honey-soft);color:var(--ink);width:30px;height:30px;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-wd{text-align:center;font-size:11px;color:var(--muted);padding-bottom:4px}
-.cal-wd.we{color:var(--terra)}
-.cal-day{border:0;background:none;color:var(--ink);border-radius:12px;padding:5px 0 4px;min-height:38px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font:800 13px Nunito,sans-serif}
+/* ============ sections ============ */
+main{animation:in var(--base) var(--ease)}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.sec{display:flex;align-items:center;gap:var(--s2);margin:var(--s5) 0 var(--s2)}
+.sec h2{font:800 18px/1.2 var(--font);letter-spacing:-.3px;margin:0;min-width:0;overflow-wrap:anywhere}
+.sec .count{font:700 13px/1 var(--font);color:var(--text-2);background:var(--surface-2);border-radius:var(--r-full);padding:4px 8px}
+.sec.hot h2{text-transform:uppercase;letter-spacing:.4px;font-size:16px}
+.sec.past h2{color:var(--text-2);font-size:16px}
+.sec .ava{width:24px;height:24px;font-size:11px;border:0}
+.sec .ava.both{background:var(--brand)}
+.sec .ava .ic{width:14px;height:14px;stroke-width:2.2}
+.calm{display:flex;gap:var(--s3);align-items:center;margin-top:var(--s5);padding:var(--s3) var(--s4);border-radius:var(--r-m);
+  background:var(--success-soft);color:var(--success-ink);font:var(--t-caption)}
+.calm .ic{width:18px;height:18px}
+
+/* ============ card ============ */
+.card{position:relative;display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-l);padding:10px 8px 10px var(--s3);margin-bottom:var(--s2);box-shadow:var(--shadow-1);cursor:pointer;max-height:600px;
+  transition:opacity var(--base) var(--ease),transform var(--base) var(--ease),max-height var(--base) var(--ease),margin var(--base),padding var(--base)}
+.card .tile{width:36px;height:36px;border-radius:11px;background:var(--surface-2);color:var(--text-2);display:grid;place-items:center;flex:none}
+.card.k-event .tile{background:var(--brand-soft);color:var(--brand-ink)}
+.card .body{flex:1;min-width:0;padding-top:2px}
+.card .title{font:var(--t-title);overflow-wrap:anywhere;hyphens:auto}
+.card .due{display:flex;align-items:center;gap:5px;margin-top:2px;font:var(--t-caption);color:var(--text-2)}
+.card .due .ic{width:15px;height:15px}
+/* One status signal per card: the due line. Red pill = past its date, amber pill = hanging a week+,
+   coral text = today, grey = later or already past (joint plans). Border and tile stay neutral. */
+.card .due.late,.card .due.hang{width:fit-content;max-width:100%;padding:2px 8px 2px 6px;border-radius:var(--r-full);margin-top:4px}
+.card .due.late{color:var(--danger-ink);background:var(--danger-soft)}
+.card .due.hang{color:var(--warning-ink);background:var(--warning-soft)}
+.card .due.today{color:var(--brand-ink)}
+.card .due.past{color:var(--text-3)}
+.card .who{display:flex;align-items:center;gap:6px;margin-top:3px;font:500 13px/1.3 var(--font);color:var(--text-2)}
+.card .who .ava{width:18px;height:18px;font-size:9px;border:0}
+.card .who .ic{width:16px;height:16px}
+.card.past{box-shadow:none;background:transparent}
+.card.past .title{color:var(--text-2)}
+.tick{width:44px;height:44px;margin:-4px 0 -4px 0;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer;flex:none}
+.tick i{width:28px;height:28px;border-radius:50%;border:1.8px solid var(--control);display:grid;place-items:center;color:transparent;
+  transition:all var(--fast) var(--ease)}
+.tick .ic{width:16px;height:16px;stroke-width:2.6}
+.tick:hover i{border-color:var(--success)}
+.card.done{opacity:.6;box-shadow:none}
+.card.done .title{text-decoration:line-through;text-decoration-color:var(--text-3);color:var(--text-2)}
+.card.done .tick i{background:var(--success);border-color:var(--success);color:#fff;transform:scale(1.08)}
+.card.gone{opacity:0;transform:translateX(24px);max-height:0;margin:0;padding-top:0;padding-bottom:0;border-width:0;overflow:hidden}
+.card.fresh{animation:pop .6s var(--ease)}
+@keyframes pop{0%{transform:scale(.97);background:var(--brand-soft)}100%{transform:none}}
+.warn{display:flex;gap:6px;align-items:flex-start;margin-top:6px;padding:6px var(--s2);border-radius:var(--r-s);
+  background:var(--warning-soft);color:var(--text);font:500 13px/1.35 var(--font)}
+.warn .ic{width:15px;height:15px;color:var(--warning-ink);margin-top:1px}
+.warn b{font-weight:800;color:var(--warning-ink)}
+.warn u{text-decoration:none;font-weight:800;color:var(--warning-ink);white-space:nowrap}
+
+/* ============ calendar ============ */
+.cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--s2) var(--s2) var(--s3);margin-top:var(--s3);box-shadow:var(--shadow-1)}
+.cal-head{display:flex;align-items:center;gap:var(--s1);padding:0 0 var(--s2)}
+.cal-head .nav{width:44px;height:44px;border:0;border-radius:12px;background:none;color:var(--text-2);display:grid;place-items:center;cursor:pointer}
+.cal-title{flex:1;min-width:0;border:0;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:12px}
+.cal-title b{font:800 16px/1 var(--font);text-transform:capitalize;white-space:nowrap}
+.cal-title span{display:flex;align-items:center;gap:2px;font:700 12px/1 var(--font);color:var(--text);background:var(--brand-soft);border-radius:var(--r-full);padding:5px 8px}
+.cal-title .ic{width:14px;height:14px;stroke-width:2.2}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.cal-wd{text-align:center;font:var(--t-micro);color:var(--text-2);padding:2px 0 6px;text-transform:uppercase;letter-spacing:.4px}
+.cal-wd.we{color:var(--brand-ink)}
+.cal-day{border:0;background:none;border-radius:12px;min-height:44px;padding:6px 0 5px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+  font:700 14px/1 var(--font);color:var(--text)}
 .cal-day.out{visibility:hidden}
-.cal-day.today{background:var(--honey-soft)}
-.cal-day.sel{background:var(--terra);color:#fff}
-.cal-day.hot:not(.sel){color:var(--hot)}
-.dots{display:flex;gap:2px;height:5px}
-.dots i{width:5px;height:5px;border-radius:50%;display:block}
-.d-task{background:var(--honey)} .d-event{background:var(--rose)} .d-busy{background:var(--lav)} .d-hot{background:var(--hot)}
-.cal-day.sel .dots i{box-shadow:0 0 0 1.5px #fff}
-.legend{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;font-size:11px;color:var(--muted);margin-top:6px}
-.legend span{display:flex;align-items:center;gap:4px}
-.legend i{width:7px;height:7px;border-radius:50%;display:block}
-.empty{text-align:center;color:var(--muted);padding:36px 24px;background:var(--paper);border-radius:26px;margin-top:16px;box-shadow:var(--shadow)}
-.empty .big{font-size:46px;margin-bottom:8px}
+.cal-day.today{box-shadow:inset 0 0 0 1.5px var(--brand)}
+.cal-day.sel{background:var(--text);color:var(--bg)}
+.dots{display:flex;gap:3px;height:6px;align-items:center}
+.dots i{width:6px;height:6px;border-radius:50%;display:block}
+.d-mine{background:var(--text-2)} .d-ours{background:var(--brand)} .d-busy{box-shadow:inset 0 0 0 1.5px var(--text-2)} .d-hot{background:var(--danger)}
+.cal-day.sel .d-mine{background:var(--bg)} .cal-day.sel .d-busy{box-shadow:inset 0 0 0 1.5px var(--bg)}
+.legend{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;font:600 12px/1 var(--font);color:var(--text-2);margin-top:var(--s3)}
+.legend span{display:flex;align-items:center;gap:5px}
+.day-label{font:800 17px/1.2 var(--font);margin:var(--s5) 0 var(--s3);display:flex;align-items:baseline;gap:var(--s2)}
+.day-label small{font:var(--t-caption);color:var(--text-2)}
 
-.composer{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 35%)}
-.composer form{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:24px;padding:7px 7px 7px 16px;box-shadow:0 8px 26px rgba(140,90,50,.16);border:2px solid var(--line)}
-.composer input{flex:1;border:0;background:none;color:var(--ink);font:700 15px Nunito,sans-serif;outline:none;min-width:0}
-.composer input::placeholder{color:var(--muted)}
-.composer .btn{width:44px;height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1;background:var(--honey);color:#5A3B12}
-.composer .hint{font-size:11px;color:var(--muted);text-align:center;margin-top:7px}
+/* ============ states ============ */
+.state{text-align:center;padding:var(--s8) var(--s6);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);margin-top:var(--s4)}
+.state .badge{width:56px;height:56px;border-radius:50%;background:var(--surface-2);color:var(--text-2);display:grid;place-items:center;margin:0 auto var(--s3)}
+.state .badge .ic{width:26px;height:26px}
+.state.err .badge{background:var(--danger-soft);color:var(--danger-ink)}
+.state h3{font:800 17px/1.3 var(--font);margin:0 0 6px}
+.state p{margin:0 auto;max-width:300px;font:500 14px/1.45 var(--font);color:var(--text-2)}
+.state .btn{margin-top:var(--s4)}
+.state.small{padding:var(--s5) var(--s4);margin-top:0}
+.skel{height:68px;border-radius:var(--r-l);background:var(--surface);border:1px solid var(--border);margin-bottom:var(--s2);position:relative;overflow:hidden}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--surface-2),transparent);animation:shim 1.2s infinite;transform:translateX(-100%)}
+.skel.line{height:16px;width:55%;border-radius:8px;border:0;margin:var(--s5) 0 var(--s2)}
+@keyframes shim{to{transform:translateX(100%)}}
 
-.sheet{position:fixed;inset:0;background:rgba(40,25,15,.4);display:none;align-items:flex-end;z-index:5}
-.sheet.on{display:flex}
-.sheet > div{background:var(--paper);width:100%;border-radius:28px 28px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom))}
-.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
-.sheet .title{font-weight:900;font-size:17px;margin:0 0 8px}
-.sheet button{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:none;color:var(--ink);font-weight:800;font-size:16px;padding:13px 6px;border-bottom:1px solid var(--line);cursor:pointer}
-.sheet button:last-child{border:0;color:var(--muted);justify-content:center}
-.sheet button.red{color:var(--rose)}
+/* ============ composer: a block under the list, never over it ============ */
+.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), env(safe-area-inset-bottom));background:var(--bg);
+  border-top:1px solid var(--border)}
+.kb-open .composer{padding-bottom:var(--s2)}  /* the home-indicator inset sits under the keyboard */
+.composer form{display:flex;gap:var(--s2);align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
+  padding:3px 3px 3px var(--s4)}
+.composer form:focus-within{border-color:var(--brand)}
+.composer input{flex:1;min-width:0;border:0;background:none;color:var(--text);font:500 16px/1.3 var(--font);outline:none;min-height:40px}
+.composer input::placeholder{color:var(--text-3);opacity:1;font-weight:500}
+.composer .add{width:44px;height:44px;border-radius:13px;border:0;background:var(--brand-fill);color:var(--on-brand);display:grid;place-items:center;cursor:pointer;flex:none;
+  transition:transform var(--fast) var(--ease)}
+.composer .add:active{transform:scale(.92)}
+.composer .add .ic{width:22px;height:22px;stroke-width:2.4}
+.composer .add[disabled]{opacity:.55;cursor:default}
+.composer .add .spin{display:none;width:20px;height:20px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:rot .7s linear infinite}
+.composer.busy .add .spin{display:block} .composer.busy .add .ic{display:none}
+@keyframes rot{to{transform:rotate(360deg)}}
+/* plain text, not a button: voice works in the chat with the bot */
+.hint{margin:5px 2px 0;font:500 12px/1.3 var(--font);color:var(--text-2)}
+.composer:focus-within .hint,.kb-open .hint{display:none}
+@media (max-height:600px){ .hint{display:none} }
 
-.toast{position:fixed;left:16px;right:16px;top:14px;background:var(--ink);color:var(--bg);border-radius:20px;padding:13px 16px;font-size:14px;z-index:9;
-  transform:translateY(calc(-100% - 40px));transition:transform .35s cubic-bezier(.2,1.4,.4,1)}
+/* ============ sheet & toast ============ */
+.sheet{position:fixed;inset:0;z-index:6;background:var(--scrim);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity var(--base)}
+.sheet.on{opacity:1;pointer-events:auto}
+.sheet > div{width:100%;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:10px var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform var(--base) var(--ease);max-height:85vh;overflow:auto}
+.sheet.on > div{transform:none}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto var(--s3)}
+.sheet-head{display:flex;gap:var(--s3);align-items:flex-start;padding:0 0 var(--s3);border-bottom:1px solid var(--border);margin-bottom:var(--s1)}
+.sheet-head .tile{width:40px;height:40px;border-radius:12px;background:var(--surface-2);color:var(--text-2);display:grid;place-items:center;flex:none}
+.sheet-head b{font:800 17px/1.3 var(--font);overflow-wrap:anywhere;display:block}
+.sheet-head small{font:var(--t-caption);color:var(--text-2)}
+.opt{display:flex;gap:var(--s3);align-items:center;width:100%;min-height:52px;border:0;background:none;text-align:left;font:600 16px/1.2 var(--font);
+  padding:0 var(--s1);border-bottom:1px solid var(--border);cursor:pointer;color:var(--text)}
+.opt .ic{color:var(--text-2)}
+.opt .cur{margin-left:auto;font:var(--t-caption);color:var(--success-ink);display:flex;align-items:center;gap:4px}
+.opt .cur .ic{color:var(--success-ink);width:16px;height:16px}
+.opt.danger,.opt.danger .ic{color:var(--danger-ink)}
+.opt.cancel{justify-content:center;border:0;color:var(--text-2)}
+.toast{position:fixed;left:var(--s4);right:var(--s4);top:calc(var(--s3) + env(safe-area-inset-top));z-index:9;display:flex;gap:var(--s3);align-items:center;
+  background:var(--text);color:var(--bg);border-radius:var(--r-m);padding:var(--s3) var(--s4);font:600 14px/1.4 var(--font);box-shadow:var(--shadow-2);
+  transform:translateY(calc(-100% - 40px));transition:transform var(--base) var(--ease)}
 .toast.on{transform:none}
+.toast .ic{width:18px;height:18px;flex:none}
+.toast.bad .ic{color:var(--danger)}
+.toast.good .ic{color:var(--success)}
+.toast span{flex:1;min-width:0}
+.toast .act{border:0;background:none;color:var(--brand);font:800 14px/1 var(--font);min-height:40px;padding:0 var(--s1) 0 var(--s2);cursor:pointer;white-space:nowrap}
+.toast:not(.on){pointer-events:none}
+/* edit form in the sheet */
+.edit{display:grid;gap:var(--s2);padding:var(--s3) 0;border-bottom:1px solid var(--border)}
+.edit label{font:var(--t-caption);color:var(--text-2);display:grid;gap:4px}
+.edit input{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
+  min-height:44px;padding:0 var(--s3);width:100%;min-width:0;color-scheme:light dark}
+.edit input:focus{outline:none;border-color:var(--brand)}
+.edit .row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:var(--s2)}
+.edit .err{font:var(--t-caption);color:var(--danger-ink);min-height:0}
+.edit .err:empty{display:none}
+.edit .btn{width:100%}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
 </style>
 </head>
 <body>
-<section class="hero" id="hero">
-  <svg class="house" viewBox="0 0 132 118" aria-hidden="true">
-    <path d="M14 58 L66 16 L118 58" fill="none" stroke="var(--terra)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="94" y="22" width="12" height="22" rx="3" fill="var(--terra)"/>
-    <path d="M26 54 L66 22 L106 54 L106 118 L26 118 Z" fill="var(--paper)"/>
-    <rect x="40" y="66" width="22" height="20" rx="5" fill="var(--window)"/>
-    <path d="M51 66 V86 M40 76 H62" stroke="var(--paper)" stroke-width="2.5"/>
-    <rect x="72" y="78" width="20" height="40" rx="9" fill="var(--terra)" opacity=".85"/>
-    <circle cx="87" cy="99" r="2" fill="var(--paper)"/>
-    <path d="M66 42 c-3-5-11-3-9 3 c1 3 9 8 9 8 s8-5 9-8 c2-6-6-8-9-3z" fill="var(--rose)"/>
-  </svg>
-  <div class="brand">обещал — сделал</div>
-  <div class="hello" id="hello">Загружаю…</div>
-  <div class="pair" id="pair"></div>
-  <div id="oldest"></div>
-</section>
-<div id="invite"></div>
-<nav class="tabs" id="tabs">
-  <button data-tab="tasks" class="on">🏡 Дела<b id="n-tasks"></b></button>
-  <button data-tab="month">📅 Месяц</button>
-  <button data-tab="buy">🧺 Покупки<b id="n-buy"></b></button>
-  <button data-tab="busy">⚽ Заняты</button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="m9 14 2.2 2.2L15.5 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11"/><circle cx="5.5" cy="18" r="1.2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12.5h-11z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c.5 3 3.5 4.8 3.5 8.6a3.5 3.5 0 0 1-1 2.4c.3-1.6-.6-2.8-1.6-3.4.1 1.8-1 2.6-1.9 2.6-1 0-1.5-.8-1.4-1.9C8.5 12.4 7 14 7 16a5 5 0 0 0 10 0c0-5.6-5-7.6-5-13z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4M12 16.8v.1"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c1.4-3.6 4.4-5 7.5-5s6.1 1.4 7.5 5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.8 19.5c1-3.3 3.4-4.6 6.2-4.6s5.2 1.3 6.2 4.6"/><path d="M15.5 5.3a3.3 3.3 0 0 1 0 6.4M17.5 15.2c1.8.5 3.1 1.8 3.7 4.3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.9 13h9.2l.9-13"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 3 3 3-3 3"/><path d="M4 11V9.5A3.5 3.5 0 0 1 7.5 6H20"/><path d="m7 21-3-3 3-3"/><path d="M20 13v1.5a3.5 3.5 0 0 1-3.5 3.5H4"/></symbol>
+  <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 4.5 4.5 5.5 4.5 8.5s-4.5 4-4.5 8.5M16.5 3.5c0 4.5-4.5 5.5-4.5 8.5s4.5 4 4.5 8.5"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 8.5a14 14 0 0 1 19 0M5.5 12a9.5 9.5 0 0 1 13 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01M3 3l18 18"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-sofa" viewBox="0 0 24 24"><path d="M5 11V8.5A2.5 2.5 0 0 1 7.5 6h9A2.5 2.5 0 0 1 19 8.5V11"/><path d="M3 12.5a2 2 0 0 1 4 0V14h10v-1.5a2 2 0 0 1 4 0V18H3zM5 18v2M19 18v2"/></symbol>
+  <!-- what the line is about -->
+  <symbol id="p-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="p-paw" viewBox="0 0 24 24"><circle cx="6" cy="11" r="1.8"/><circle cx="9.5" cy="6.5" r="1.8"/><circle cx="14.5" cy="6.5" r="1.8"/><circle cx="18" cy="11" r="1.8"/><path d="M12 12c-3 0-5 3.5-5 5.5C7 19 8.2 20 9.5 20c1 0 1.5-.5 2.5-.5s1.5.5 2.5.5c1.3 0 2.5-1 2.5-2.5 0-2-2-5.5-5-5.5z"/></symbol>
+  <symbol id="p-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/></symbol>
+  <symbol id="p-drop" viewBox="0 0 24 24"><path d="M12 3.5s6 6.3 6 10.5a6 6 0 0 1-12 0c0-4.2 6-10.5 6-10.5z"/></symbol>
+  <symbol id="p-spark" viewBox="0 0 24 24"><path d="M12 3.5 13.8 10l6.7 2-6.7 2L12 20.5 10.2 14l-6.7-2 6.7-2z"/></symbol>
+  <symbol id="p-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
+  <symbol id="p-play" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="m10.5 9.3 4.2 2.7-4.2 2.7z"/></symbol>
+  <symbol id="p-food" viewBox="0 0 24 24"><path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M16.5 21V3c2.3 1.4 3.5 3.9 3.5 7 0 2.4-1.4 4-3.5 4"/></symbol>
+  <symbol id="p-gift" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5.5 12.5V20h13v-7.5M12 8v12M12 8c-1.5-3-5-3.8-5-1.5S10 8 12 8zm0 0c1.5-3 5-3.8 5-1.5S14 8 12 8z"/></symbol>
+  <symbol id="p-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.2-5 4.2 10 2.2-5H21"/></symbol>
+  <symbol id="p-car" viewBox="0 0 24 24"><path d="M4 16.5v-4.3L6.3 7h11.4l2.3 5.2v4.3z"/><path d="M4 12.5h16"/><circle cx="7.5" cy="16.5" r="1.6"/><circle cx="16.5" cy="16.5" r="1.6"/></symbol>
+  <symbol id="p-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/></symbol>
+  <symbol id="p-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m12 7.5 3.8 2.7-1.4 4.4H9.6l-1.4-4.4z"/></symbol>
+  <symbol id="p-gym" viewBox="0 0 24 24"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></symbol>
+  <symbol id="p-wave" viewBox="0 0 24 24"><path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></symbol>
+  <symbol id="p-cup" viewBox="0 0 24 24"><path d="M5 8.5h11V14a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 10.5h1.5a2 2 0 0 1 0 4H16M8.5 3.5v2M12.5 3.5v2"/></symbol>
+  <symbol id="p-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15"/><path d="m5 19 7-7"/></symbol>
+  <symbol id="p-shirt" viewBox="0 0 24 24"><path d="M8.5 3.5 3.5 6.5l2 4 2-1v11h9v-11l2 1 2-4-5-3c-.5 1.5-1.8 2.4-3.5 2.4S9 5 8.5 3.5z"/></symbol>
+  <symbol id="p-battery" viewBox="0 0 24 24"><rect x="3" y="8" width="16" height="8" rx="2"/><path d="M21 11v2M6.5 11v2M9.5 11v2"/></symbol>
+  <symbol id="p-star" viewBox="0 0 24 24"><path d="m12 3.5 2.5 5.4 5.9.7-4.4 4 1.2 5.9L12 16.6l-5.2 2.9 1.2-5.9-4.4-4 5.9-.7z"/></symbol>
+</svg>
+
+<div class="app" id="app">
+<div class="scroll" id="scroll">
+<header class="top">
+  <div class="bar">
+    <span class="mark" title="Обещал — сделал" aria-hidden="true"><svg class="ic"><use href="#i-logo"/></svg></span>
+    <div class="title-block"><h1 id="hello">&nbsp;</h1><div class="date" id="date"></div></div>
+    <span class="pair" id="pair"></span>
+  </div>
+  <div id="summary"></div>
+  <div id="invite"></div>
+</header>
+<nav class="tabs" id="tabs" role="tablist" hidden>
+  <button role="tab" data-tab="tasks" aria-selected="true"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
+  <button role="tab" data-tab="month" aria-selected="false"><svg class="ic"><use href="#i-cal"/></svg>Календарь</button>
+  <button role="tab" data-tab="buy" aria-selected="false"><svg class="ic"><use href="#i-bag"/></svg>Покупки</button>
+  <button role="tab" data-tab="busy" aria-selected="false"><svg class="ic"><use href="#i-clock"/></svg>Заняты</button>
 </nav>
-<main id="list"></main>
-<div class="composer">
-  <form id="form"><input id="input" placeholder="Вкрути лампочку до субботы…" autocomplete="off" maxlength="500"><button class="btn" aria-label="Добавить">+</button></form>
-  <div class="hint">Голосом ещё проще: наговори в чат с ботом 🎙</div>
+<main id="list" aria-live="polite"></main>
 </div>
-<div class="sheet" id="sheet"><div><div class="grab"></div><div id="sheet-body"></div></div></div>
-<div class="toast" id="toast"></div>
+<div class="composer" id="composer" hidden>
+  <form id="form">
+    <label for="input" class="sr">Что не забыть</label>
+    <input id="input" placeholder="Добавить дело или покупку…" autocomplete="off" enterkeyhint="send" maxlength="500">
+    <button class="add" id="add" aria-label="Добавить"><svg class="ic"><use href="#i-plus"/></svg><span class="spin" aria-hidden="true"></span></button>
+  </form>
+  <p class="hint">Можно голосом: отправьте голосовое боту в чат.</p>
+</div>
+</div>
+<div class="sheet" id="sheet" aria-hidden="true"><div role="dialog" aria-modal="true"><div class="grab"></div><div id="sheet-body"></div></div></div>
+<div class="toast" id="toast" role="status"></div>
 <script>
 const tg = window.Telegram && Telegram.WebApp;
 const initData = tg ? tg.initData : "";
-const DEMO = !initData;
+// Sample data only on an explicit ?demo link (design previews); a real launch always needs Telegram's signed initData.
+const DEMO = !initData && new URLSearchParams(location.search).has("demo");
 let S = null, tab = "tasks", calMonth = null, calDay = null, calOpen = false, calWeek = null;
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("bg_color"); } catch(e){} }
+if (tg && initData) {
+  tg.ready(); tg.expand();
+  // Follow Telegram's own theme, not just the phone's: a dark Telegram on a light phone gets the dark app.
+  const theme = () => {
+    document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
+    // Telegram's own header, background and bottom bar take the app's background, so there is no seam around it.
+    try { const bg = getComputedStyle(document.body).backgroundColor; tg.setHeaderColor(bg); tg.setBackgroundColor(bg); tg.setBottomBarColor && tg.setBottomBarColor(bg); } catch(e){}
+  };
+  theme(); tg.onEvent && tg.onEvent("themeChanged", theme);
+}
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const icon = (id, cls = "ic") => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// Browser storage only keeps an unsent draft; the items themselves live on the server.
+const store = {get(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } },
+               set(k, v){ try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch(e){} }};
 
-// A homely picture for each line: by words in the text, else by kind.
+// A line icon for each item: by words in the text, else by kind.
 const PICS = [
-  [/корм/,"🐾"],[/лампоч|свет|люстр/,"💡"],[/кот|кош/,"🐈"],[/собак|пес|выгул/,"🐕"],[/полк|повес|дрел|сверл|шуруп/,"🪚"],
-  [/кран|сантех|труб|смесит/,"🚰"],[/мусор/,"🗑"],[/посуд/,"🍽"],[/стир|белье/,"🧺"],[/убор|пылесос|пол\b|окн/,"🧽"],
-  [/мам|родител|дач/,"🏡"],[/кино|фильм/,"🍿"],[/ресторан|ужин|кафе/,"🍷"],[/день рожд|годовщин|подар/,"🎁"],
-  [/врач|ветеринар|больниц|анализ/,"🩺"],[/машин|шин|авто|сто\b/,"🚗"],[/оплат|счет|квартплат|интернет/,"💳"],
-  [/футбол/,"⚽"],[/хоккей/,"🏒"],[/бан[яеию]|сауна/,"🧖"],[/рыбал/,"🎣"],[/маникюр|ногт/,"💅"],[/йог|пилатес|зал|трениров/,"🧘"],
-  [/молок|кефир|сыр|йогурт/,"🥛"],[/хлеб|батон/,"🍞"],[/батарейк/,"🔋"],[/яйц/,"🥚"],[/фрукт|яблок|банан/,"🍎"],
-  [/овощ|картош|морков|помидор/,"🥕"],[/мяс|куриц|фарш/,"🍗"],[/кофе|чай/,"☕"],[/пиво|вино/,"🍷"],[/порош|мыл|шампун|бумаг/,"🧴"],
+  [/корм/,"p-paw"],[/лампоч|свет|люстр|розетк/,"p-bulb"],[/кот|кош|собак|пес|выгул/,"p-paw"],[/полк|повес|дрел|сверл|шуруп|почин|ремонт/,"p-tool"],
+  [/кран|сантех|труб|смесит|протек/,"p-drop"],[/мусор/,"i-trash"],[/посуд|ужин|ресторан|кафе|готов/,"p-food"],[/стир|бель|глад/,"p-shirt"],
+  [/убор|пылесос|пол\b|окн|помыть|помой/,"p-spark"],[/мам|родител|дач|гост/,"p-home"],[/кино|фильм|сериал|театр/,"p-play"],
+  [/день рожд|годовщин|подар/,"p-gift"],[/врач|ветеринар|больниц|анализ|аптек/,"p-pulse"],[/машин|шин|авто|сто\b/,"p-car"],
+  [/оплат|сч[её]т|квартплат|интернет|налог/,"p-card"],[/футбол|хоккей|волейбол|теннис/,"p-ball"],[/йог|пилатес|зал\b|трениров|бег/,"p-gym"],
+  [/бан[яеию]|сауна|рыбал|бассейн/,"p-wave"],[/маникюр|ногт|салон|стрижк/,"p-star"],[/кофе|чай|молок|кефир|сок/,"p-cup"],
+  [/фрукт|яблок|банан|овощ|картош|морков|помидор|зелен/,"p-leaf"],[/батарейк/,"p-battery"],
 ];
-const KIND_PIC = {task:"🔧", event:"💞", buy:"🛍", busy:"🗓"};
+const KIND_PIC = {task:"p-tool", event:"i-heart", buy:"i-bag", busy:"i-clock"};
 const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KIND_PIC[it.kind]])[1];
 
 function demoState(){
-  return {brand:"Обещал — сделал", me:{id:1,name:"Маша"}, partner:{id:2,name:"Дима"}, invite:"", items:[
-    {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Дима",author:1,when:"висит 14 дней",hot:true,warnings:[]},
-    {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Маша",author:2,when:"просрочено на 2 дня",day:"2026-10-22",hot:true,warnings:[]},
-    {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Маша",author:2,when:"завтра",day:"2026-10-25",warnings:[]},
-    {id:3,kind:"event",text:"Едем к маме на дачу",assignee:null,assignee_name:"оба",author:1,when:"сб 31.10",day:"2026-10-31",
-     warnings:["⚠️ Осторожно: сб 31.10 Дима занят(а), там «Баня с друзьями». Планировать на этот день совместное — смелый поступок."]},
-    {id:4,kind:"task",text:"Повесить полку в прихожей",assignee:2,assignee_name:"Дима",author:1,when:"вс 01.11 в 12:00",day:"2026-11-01",warnings:[]},
+  const t = new Date(), d = n => { const x = new Date(t); x.setDate(x.getDate() + n); return iso(x); };
+  const dm = n => d(n).slice(8, 10) + "." + d(n).slice(5, 7);
+  return {brand:"Обещал — сделал", me:{id:1,name:"Лена"}, partner:{id:2,name:"Артём"}, invite:"", items:[
+    {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Артём",author:1,when:"висит 14 дней",hot:true,warnings:[]},
+    {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Лена",author:2,when:"просрочено на 2 дня",day:d(-2),hot:true,warnings:[]},
+    {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Лена",author:2,when:"сегодня в 18:00",day:d(0),warnings:[]},
+    {id:12,kind:"task",text:"Разобрать балкон и наконец вынести старый велосипед, который «ещё пригодится»",assignee:2,assignee_name:"Артём",author:1,when:"висит 4 дня",warnings:[]},
+    {id:3,kind:"event",text:"Едем к маме на дачу",assignee:null,assignee_name:"оба",author:1,when:"сб " + dm(7),day:d(7),
+     warnings:[`⚠️ Накладка: сб ${dm(7)} общий план совпадает с делом «Баня с друзьями» (Артём). Планировать на этот день совместное — смелый поступок. Бот предупредил.`]},
+    {id:4,kind:"task",text:"Повесить полку в прихожей",assignee:2,assignee_name:"Артём",author:1,when:"завтра в 12:00",day:d(1),warnings:[]},
+    {id:13,kind:"event",text:"Кино вечером",assignee:null,assignee_name:"оба",author:2,when:"завтра",day:d(1),warnings:[]},
     {id:5,kind:"buy",text:"Батарейки AA",assignee:null,assignee_name:"оба",author:1,when:"",warnings:[]},
     {id:6,kind:"buy",text:"Молоко",assignee:null,assignee_name:"оба",author:2,when:"",warnings:[]},
-    {id:7,kind:"buy",text:"Корм для кота",assignee:null,assignee_name:"оба",author:1,when:"",warnings:[]},
-    {id:8,kind:"busy",text:"Футбол",assignee:2,assignee_name:"Дима",author:2,when:"каждый четверг",weekday:3,warnings:[]},
-    {id:9,kind:"busy",text:"Баня с друзьями",assignee:2,assignee_name:"Дима",author:2,when:"сб 31.10",day:"2026-10-31",warnings:[]},
-    {id:10,kind:"busy",text:"Маникюр",assignee:1,assignee_name:"Маша",author:1,when:"пт 30.10 в 18:00",day:"2026-10-30",warnings:[]},
+    {id:7,kind:"buy",text:"Корм для кота, тот самый, в синей пачке, а не «какой был»",assignee:null,assignee_name:"оба",author:1,when:"",warnings:[]},
+    {id:8,kind:"busy",text:"Футбол",assignee:2,assignee_name:"Артём",author:2,when:"каждый четверг",weekday:3,warnings:[]},
+    {id:9,kind:"busy",text:"Баня с друзьями",assignee:2,assignee_name:"Артём",author:2,when:"сб " + dm(7),day:d(7),warnings:[]},
+    {id:10,kind:"busy",text:"Маникюр",assignee:1,assignee_name:"Лена",author:1,when:"сегодня в 18:00",day:d(0),warnings:[]},
   ]};
 }
 
+class ApiError extends Error { constructor(msg, status){ super(msg); this.status = status; } }
 async function api(path, opts={}){
   if (DEMO) return demoApi(path, opts);
-  const r = await fetch(path, {...opts, headers:{"Content-Type":"application/json","X-Init-Data":initData}});
+  let r;
+  try { r = await fetch(path, {...opts, headers:{"Content-Type":"application/json","X-Init-Data":initData}}); }
+  catch(e){ throw new ApiError("Нет связи с сервером. Проверьте интернет.", 0); }
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || "Ошибка сети");
+  if (!r.ok) throw new ApiError(data.error || "Сервер ответил ошибкой. Попробуйте ещё раз.", r.status);
   return data;
 }
 function demoApi(path, opts){
   if (path === "/api/state") return S || demoState();
   const m = path.match(/\/api\/items\/(\d+)/);
   if (m && opts.method === "DELETE" || m && path.endsWith("/done")) S.items = S.items.filter(i => i.id != m[1]);
+  if (m && path.endsWith("/who")) { const it = S.items.find(i => i.id == m[1]), w = JSON.parse(opts.body).who;
+    it.assignee = w === "both" ? null : w === "me" ? 1 : 2; it.assignee_name = w === "both" ? "оба" : w === "me" ? "Лена" : "Артём"; }
+  if (m && opts.method === "PATCH") { const it = S.items.find(i => i.id == m[1]); Object.assign(it, JSON.parse(opts.body)); return {item: it}; }
   if (path === "/api/add") {
     const text = JSON.parse(opts.body).text, buy = /^купи/i.test(text);
-    const it = {id:Date.now(),kind:buy?"buy":"task",text:buy?text.replace(/^купи(ть)?\s*/i,""):text,assignee:2,assignee_name:"Дима",author:1,when:"",warnings:[]};
+    const it = {id:Date.now(),kind:buy?"buy":"task",text:buy?text.replace(/^купи(ть)?\s*/i,""):text,assignee:2,assignee_name:"Артём",author:1,when:"",warnings:[]};
     S.items.unshift(it); return {items:[it]};
   }
   return {ok:true};
 }
 
-function toast(text){ const t=$("toast"); t.textContent=text; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),4500); }
+function toast(text, mood = "", ms = 4000, action = null){
+  const t = $("toast"), ic = mood === "bad" ? "i-alert" : mood === "good" ? "i-check" : "i-logo";
+  t.className = "toast " + mood; t.innerHTML = icon(ic) + `<span>${esc(text)}</span>` + (action ? `<button class="act">${esc(action.label)}</button>` : "");
+  if (action) t.querySelector(".act").onclick = () => { t.classList.remove("on"); action.run(); };
+  requestAnimationFrame(() => t.classList.add("on"));
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms);
+}
 
-async function load(){
-  try { S = await api("/api/state"); } catch(e){ $("hello").textContent = e.message; return; }
+// ---------- states ----------
+function stateHtml(ic, title, text, action = "", err = false){
+  return `<div class="state${err ? " err" : ""}"><div class="badge">${icon(ic)}</div><h3>${title}</h3><p>${text}</p>${action}</div>`;
+}
+function showLoading(){
+  $("hello").innerHTML = `<span class="skel line" style="display:block;height:28px;width:60%;margin:0"></span>`;
+  $("list").innerHTML = `<div class="skel line"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>`;
+}
+function showFatal(e){
+  $("hello").textContent = "Планер пары"; $("date").textContent = ""; $("summary").innerHTML = ""; $("invite").innerHTML = "";
+  $("tabs").hidden = true; $("composer").hidden = true;
+  const retry = `<button class="btn" data-retry="1">Повторить</button>`;
+  $("list").innerHTML = e.status === 401
+    ? stateHtml("i-lock", "Нет доступа", "Планер открывается только из бота: так мы понимаем, чей это дом. Откройте его кнопкой «Планер» в чате с ботом.", tg && initData ? `<button class="btn ghost" data-close-app="1">Вернуться в чат</button>` : "", true)
+    : e.status === 0
+      ? stateHtml("i-wifi", "Нет соединения", "Похоже, пропал интернет. Ваши дела никуда не делись, они на сервере. Подключитесь и попробуйте снова.", retry, true)
+      : stateHtml("i-alert", "Не удалось загрузить планер", esc(e.message) + " Если повторится, напишите боту /help.", retry, true);
+}
+
+async function load(first){
+  if (first) showLoading();
+  if (!initData && !DEMO) return showFatal(new ApiError("", 401));
+  try { S = await api("/api/state"); }
+  catch(e){ if (first || !S) return showFatal(e); return toast(e.message, "bad"); }
+  $("tabs").hidden = false; $("composer").hidden = false;
   render();
 }
 
-function greeting(){
-  const h = new Date().getHours();
-  return h < 5 ? "Доброй ночи" : h < 12 ? "Доброе утро" : h < 18 ? "Добрый день" : "Добрый вечер";
-}
+// ---------- header ----------
 const initial = n => esc((n || "?").trim().charAt(0).toUpperCase());
-
-function itemHtml(it){
-  const chips = [];
-  if (it.kind !== "buy") {
-    const who = it.assignee == null ? "вместе" : it.assignee === S.me.id ? "ты" : it.assignee_name;
-    chips.push(`<span class="chip ${it.kind === "busy" ? "busy" : it.assignee == null ? "both" : ""}">${esc(who)}</span>`);
-  }
-  if (it.when) chips.push(`<span class="chip ${it.hot ? "late" : it.when.startsWith("висит") ? "hang" : "when"}">${it.hot ? "🔥 " : ""}${esc(it.when)}</span>`);
-  const warn = (it.warnings || []).map(w => `<div class="warn">${esc(w)}</div>`).join("");
-  const check = it.kind === "busy" ? "" : `<button class="check" data-done="${it.id}" aria-label="Сделано">♥</button>`;
-  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}"><div class="blob">${pic(it)}</div>
-    <div class="body"><div class="text">${esc(it.text)}</div>${chips.length ? `<div class="meta">${chips.join("")}</div>` : ""}${warn}</div>${check}</div>`;
+// "Today" is the bot's calendar day (its time zone), so the app and the reminders agree even if the phone is elsewhere.
+const todayIso = () => (S && S.today) || iso(new Date());
+const weekday = dayIso => (new Date(dayIso + "T12:00").getDay() + 6) % 7;
+function onDay(dayIso){
+  const wd = weekday(dayIso);
+  return S.items.filter(i => i.kind !== "buy" && (i.day === dayIso || (i.kind === "busy" && i.weekday === wd)));
 }
+const shortDate = dayIso => new Date(dayIso + "T12:00").toLocaleDateString("ru-RU", {day:"numeric", month:"short"}).replace(".", "");
 
-function group(title, items, dot, cls){
-  if (!items.length) return "";
-  return `<h3 class="${cls || ""}">${dot || ""}${esc(title)} <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
-}
-const dot = (name, color) => `<span class="dot" style="background:var(${color})">${initial(name)}</span>`;
+function header(){
+  const me = S.me, p = S.partner, t = todayIso();
+  $("pair").innerHTML = `<span class="ava" title="${esc(me.name)}">${initial(me.name)}</span>` +
+    (p ? `<span class="ava" title="${esc(p.name)}">${initial(p.name)}</span>` : `<span class="ava wait" title="Ждём вторую половину">?</span>`);
+  const h = new Date().getHours(), hi = h < 5 ? "доброй ночи" : h < 12 ? "доброе утро" : h < 18 ? "добрый день" : "добрый вечер";
+  $("date").textContent = new Date(t + "T12:00").toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"}) + " · " + hi;
+  $("hello").textContent = p ? `${me.name} и ${p.name}` : `${me.name}, пока соло`;
 
-function render(){
-  const me = S.me, p = S.partner;
-  $("hello").textContent = `${greeting()}, ${me.name}`;
-  $("pair").innerHTML = `<span class="ava me">${initial(me.name)}</span>` +
-    (p ? `<span class="ava you">${initial(p.name)}</span><span class="heart">♥</span><span class="names">${esc(me.name)} и ${esc(p.name)}</span>`
-       : `<span class="ava wait">?</span><span class="names">ждём вторую половину</span>`);
-  const hot = S.items.filter(i => i.hot);
-  const hanging = S.items.filter(i => i.kind === "task" && /^висит/.test(i.when || ""))
-                         .sort((a, b) => parseInt(b.when.slice(6)) - parseInt(a.when.slice(6)))[0];
-  $("oldest").innerHTML = hot.length
-    ? `<div class="oldest alarm">🔥 Горит: <b>${hot.length}</b> ${hot.length === 1 ? "дело" : hot.length < 5 ? "дела" : "дел"}. Хуже всех: <b>${esc(hot[0].text.toLowerCase())}</b>, ${esc(hot[0].when)}</div>`
-    : hanging ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
-  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p>Позови свою половину, иначе напоминать будет некому. Бот уже точит сарказм 😏</p><button class="btn" id="share">Позвать</button></div>` : "";
+  // Counters are label first ("Купить 6"), so no number has to agree with a noun.
+  const today = S.items.filter(i => (i.kind === "task" || i.kind === "event") && i.day === t);
+  const buys = S.items.filter(i => i.kind === "buy");
+  const ours = S.items.filter(i => i.kind === "event" && i.day && i.day >= t).sort((a, b) => a.day < b.day ? -1 : 1)[0];
+  const hot = S.items.filter(i => i.hot), late = hot.some(isLate);
+  const busyToday = onDay(t).filter(i => i.kind === "busy" && i.assignee !== me.id);
+  let html = `<div class="stats">
+    <button class="stat${hot.length ? " hot" + (late ? " late" : "") : " muted"}" data-goto="hot" aria-label="Горит: ${hot.length}"><span>🔥 Горит</span><b>${hot.length}</b></button>
+    <button class="stat${today.length ? "" : " muted"}" data-goto="month" data-day="${t}" aria-label="Сегодня: ${today.length}"><span>Сегодня</span><b>${today.length}</b></button>
+    <button class="stat${buys.length ? "" : " muted"}" data-goto="buy" aria-label="Купить: ${buys.length}"><span>Купить</span><b>${buys.length}</b></button></div>`;
+  if (ours) html += `<button class="plan" data-goto="month" data-day="${ours.day}" aria-label="Ближайший общий план: ${esc(ours.when)}, ${esc(ours.text)}">${icon("i-heart")}<span><small>Вместе: </small><b>${esc(ours.when)}</b> · ${esc(ours.text)}</span>${icon("i-right", "ic go")}</button>`;
+  busyToday.forEach(b => { html += `<div class="note">${icon("i-clock")}<span>Сегодня ${esc(b.assignee_name)}: ${esc(b.text.toLowerCase())}. Совместное лучше на другой день.</span></div>`; });
+  $("summary").innerHTML = html;
+  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p><b>Позовите вторую половину</b>Без неё напоминать будет некому. Ссылка одноразовая, работает 48 часов.</p><button class="btn" id="share">Позвать</button></div>` : "";
   if ($("share")) $("share").onclick = () => {
-    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер 🏡");
-    tg ? tg.openTelegramLink(url) : window.open(url);
+    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер");
+    tg && initData ? tg.openTelegramLink(url) : window.open(url);
   };
+}
+
+// ---------- card ----------
+const avaFor = (name, mine, cls = "") => `<span class="ava ${cls}" style="background:var(${mine ? "--brand-fill" : "--success"})">${initial(name)}</span>`;
+function whoHtml(it){
+  if (it.kind === "buy") return "";
+  if (it.assignee == null) return `<div class="who">${icon("i-users")}вместе</div>`;
+  const mine = it.assignee === S.me.id;
+  return `<div class="who">${avaFor(it.assignee_name, mine)}${mine ? "ты" : esc(it.assignee_name)}</div>`;
+}
+// Burning past its date (red) vs. a promise that has just hung around for a week (amber); both are the server's "hot".
+const isLate = it => !!it.hot && !/^висит/.test(it.when || "");
+function dueHtml(it){
+  if (!it.when) return "";  // no date: nothing is shown rather than an invented one
+  const w = it.when;
+  if (isLate(it)) return `<div class="due late">${icon("i-flame")}${esc(w)}</div>`;
+  if (it.kind === "event" && it.day && it.day < todayIso()) return `<div class="due past">${icon("i-cal")}${esc(w)}</div>`;
+  if (it.day === todayIso()) return `<div class="due today">${icon("i-cal")}${esc(w)}</div>`;
+  if (/^висит/.test(w)) return `<div class="due hang">${icon("i-hourglass")}${esc(w)}</div>`;
+  if (/^кажд/.test(w)) return `<div class="due">${icon("i-repeat")}${esc(w)}</div>`;
+  return `<div class="due">${icon("i-cal")}${esc(w)}</div>`;
+}
+const clean = w => w.replace(/^⚠️\s*/, "");
+// In the card only the first sentence (what clashes with what, and when); the full text is in the sheet.
+const lead = w => clean(w).split(/(?<=[»".)])\.?\s+(?=[А-ЯЁ])/)[0].replace(/\.$/, "");
+const warnLabel = s => esc(s).replace(/^(Накладка):/, "<b>$1:</b>");
+function warnHtml(it){
+  return (it.warnings || []).map(w => `<div class="warn">${icon("i-alert")}<span>${warnLabel(lead(w))}. <u data-more="${it.id}">Решить</u></span></div>`).join("");
+}
+function cardHtml(it){
+  const tick = it.kind === "busy" ? "" : `<button class="tick" data-done="${it.id}" aria-label="${it.kind === "buy" ? "Куплено" : "Сделано"}: ${esc(it.text)}"><i>${icon("i-check")}</i></button>`;
+  const past = it.kind === "event" && it.day && it.day < todayIso();
+  return `<div class="card k-${it.kind}${it.hot ? " hot" : ""}${isLate(it) ? " late" : ""}${past ? " past" : ""}" id="i${it.id}" data-more="${it.id}">
+    <span class="tile">${icon(pic(it))}</span>
+    <div class="body"><div class="title">${esc(it.text)}</div>${dueHtml(it)}${whoHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
+}
+function section(title, items, lead = "", cls = "", id = ""){
+  if (!items.length) return "";
+  return `<div class="sec ${cls}"${id ? ` id="${id}"` : ""}>${lead}<h2>${esc(title)}</h2><span class="count">${items.length}</span></div>` + items.map(cardHtml).join("");
+}
+
+// ---------- screens ----------
+// [normal, narrow screen]: a hint, never pre-filled text
+const PLACEHOLDER = {tasks:["Добавить дело или покупку…", "Дело или покупка…"], month:["Добавить план на день…", "План на день…"],
+                     buy:["Добавить покупку…", "Что купить…"], busy:["Когда ты занят…", "Когда ты занят…"]};
+function render(){
+  header();
+  const me = S.me, p = S.partner;
   const by = k => S.items.filter(i => k === "tasks" ? (i.kind === "task" || i.kind === "event") : i.kind === k);
-  $("n-tasks").textContent = by("tasks").length || "";
-  $("n-tasks").classList.toggle("hot", hot.length > 0);
-  $("n-buy").textContent = by("buy").length || "";
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  const hot = S.items.filter(i => i.hot);
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  $("input").placeholder = PLACEHOLDER[tab][innerWidth <= 360 ? 1 : 0];
   if (tab === "month") { $("list").innerHTML = monthHtml(); return; }
   const items = by(tab);
   let html;
   if (!items.length) {
-    const e = {tasks:["🕯","Дел нет. Подозрительно уютно.<br>Напишите, что обещали друг другу."],
-               buy:["🧺","Корзинка пуста.<br>Холодильник, видимо, тоже скоро будет."],
-               busy:["🛋","Все дома, никто не занят.<br>Например: «по четвергам у меня футбол»."]}[tab];
-    html = `<div class="empty"><div class="big">${e[0]}</div>${e[1]}</div>`;
+    html = {tasks: stateHtml("p-home", "Дел нет. Подозрительно уютно", "Напишите внизу, что обещали друг другу. Например: «ты обещал вкрутить лампочку до субботы»."),
+            buy: stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб», и список появится."),
+            busy: stateHtml("i-sofa", "Никто не занят", "Отметьте свои постоянные дела, чтобы вторая половина не планировала на этот вечер совместное. Например: «по четвергам у меня футбол»."),
+           }[tab];
   } else if (tab === "tasks") {
-    const cold = items.filter(i => !i.hot);
-    html = group("ГОРИТ", items.filter(i => i.hot), "🔥", "hot")
-         + group("Твои дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
-         + (p ? group(`Дела: ${p.name}`, cold.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "")
-         + group("Вместе", cold.filter(i => i.assignee == null), `<span class="dot" style="background:var(--rose)">♥</span>`);
+    // Order of attention: burning, today, the rest of the promises, then plans ahead.
+    const t = todayIso(), cold = items.filter(i => !i.hot);
+    const rest = cold.filter(i => i.day !== t), todo = rest.filter(i => i.kind === "task");
+    const ev = rest.filter(i => i.kind === "event"), gone = ev.filter(i => i.day && i.day < t);
+    const plans = ev.filter(i => !gone.includes(i)).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
+    html = (hot.length ? section("🔥 ГОРИТ", hot, "", "hot", "sec-hot")
+                       : `<div class="calm">${icon("i-check")}<span>Сегодня ничего не горит. Подозрительно.</span></div>`)
+         + section("Сегодня", cold.filter(i => i.day === t), `<span class="ava both">${icon("i-cal")}</span>`)
+         + section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
+         + (p ? section(`Дела: ${p.name}`, todo.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "")
+         + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
+         + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
+         + section("Прошедшие планы", gone, "", "past");
   } else if (tab === "busy") {
-    html = group(me.name, items.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
-         + (p ? group(p.name, items.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "");
-  } else html = `<h3>🧺 Купить <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
+    html = section(me.name, items.filter(i => i.assignee === me.id), avaFor(me.name, true))
+         + (p ? section(p.name, items.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "");
+  } else html = section("Купить", items);
   $("list").innerHTML = html;
 }
 
-// ---------- month calendar ----------
-const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// ---------- calendar ----------
 const WD = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-
-function onDay(dayIso){
-  const wd = (new Date(dayIso + "T12:00").getDay() + 6) % 7;
-  return S.items.filter(i => i.kind !== "buy" && (i.day === dayIso || (i.kind === "busy" && i.weekday === wd)));
-}
-
 const monday = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; };
-
-function dayCell(date, todayIso, out){
-  const key = iso(date), list = onDay(key);
-  const kinds = [...new Set(list.map(i => i.hot ? "hot" : i.kind))].slice(0, 4);
-  const cls = [key === todayIso ? "today" : "", key === calDay ? "sel" : "", kinds.includes("hot") ? "hot" : "", out ? "out" : ""].join(" ");
-  return `<button class="cal-day ${cls}" data-day="${key}">${date.getDate()}<span class="dots">${kinds.map(k => `<i class="d-${k}"></i>`).join("")}</span></button>`;
+// Shapes as well as colours: filled coral — together, filled grey — personal, ring — someone busy, red — burning.
+function dots(list){
+  const kinds = new Set(list.map(i => i.hot ? "hot" : i.kind === "busy" ? "busy" : i.assignee == null ? "ours" : "mine"));
+  return ["hot", "ours", "mine", "busy"].filter(k => kinds.has(k)).slice(0, 3).map(k => `<i class="d-${k}"></i>`).join("");
 }
-
+function dayCell(date, t){
+  const key = iso(date), list = onDay(key);
+  const label = date.toLocaleDateString("ru-RU", {day:"numeric", month:"long"}) + (list.length ? `, ${list.length} ${plural(list.length, "запись", "записи", "записей")}` : "");
+  const cls = [key === t ? "today" : "", key === calDay ? "sel" : ""].join(" ");
+  return `<button class="cal-day ${cls}" data-day="${key}" aria-label="${label}"${key === calDay ? ' aria-current="date"' : ""}>${date.getDate()}<span class="dots">${dots(list)}</span></button>`;
+}
 // Collapsed: the current week strip. Tap the title to unfold the whole month.
 function monthHtml(){
-  const now = new Date(), todayIso = iso(now);
-  if (!calDay) calDay = todayIso;
+  const t = todayIso(), now = new Date(t + "T12:00");
+  if (!calDay) calDay = t;
   if (!calWeek) calWeek = monday(now);
   if (!calMonth) calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   let cells = WD.map((w, i) => `<div class="cal-wd${i > 4 ? " we" : ""}">${w}</div>`).join(""), title;
@@ -339,27 +637,44 @@ function monthHtml(){
     const y = calMonth.getFullYear(), m = calMonth.getMonth();
     const first = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
     for (let i = 0; i < first; i++) cells += `<div class="cal-day out"></div>`;
-    for (let d = 1; d <= days; d++) cells += dayCell(new Date(y, m, d), todayIso);
+    for (let d = 1; d <= days; d++) cells += dayCell(new Date(y, m, d), t);
     title = calMonth;
   } else {
-    for (let i = 0; i < 7; i++) { const d = new Date(calWeek); d.setDate(d.getDate() + i); cells += dayCell(d, todayIso); }
+    for (let i = 0; i < 7; i++) { const d = new Date(calWeek); d.setDate(d.getDate() + i); cells += dayCell(d, t); }
     title = new Date(calWeek.getFullYear(), calWeek.getMonth(), calWeek.getDate() + 3);
   }
   const name = title.toLocaleDateString("ru-RU", {month: "long", year: "numeric"}).replace(" г.", "");
-  const sel = onDay(calDay), sd = new Date(calDay + "T12:00");
-  const label = sd.toLocaleDateString("ru-RU", {weekday: "long", day: "numeric", month: "long"});
-  const list = sel.length ? sel.map(itemHtml).join("") : `<div class="empty" style="margin-top:0">Свободный день. Подозрительно.</div>`;
-  return `<div class="cal${calOpen ? " open" : ""}"><div class="cal-head"><button data-cal="-1" aria-label="Назад">‹</button>
-      <button class="cal-title" data-caltoggle="1">${esc(name)} <span>${calOpen ? "▴ неделя" : "▾ месяц"}</span></button>
-      <button data-cal="1" aria-label="Вперёд">›</button></div>
+  const sel = onDay(calDay);
+  const label = new Date(calDay + "T12:00").toLocaleDateString("ru-RU", {weekday: "long", day: "numeric", month: "long"});
+  const list = sel.length ? sel.map(cardHtml).join("")
+    : `<div class="state small"><h3>Свободный день</h3><p>Ни дел, ни планов. Можно наконец ничего не делать вместе.</p></div>`;
+  return `<div class="cal"><div class="cal-head">
+      <button class="nav" data-cal="-1" aria-label="${calOpen ? "Предыдущий месяц" : "Предыдущая неделя"}">${icon("i-left")}</button>
+      <button class="cal-title" data-caltoggle="1" aria-expanded="${calOpen}"><b>${esc(name)}</b><span>${calOpen ? "неделя" : "месяц"}${icon(calOpen ? "i-up" : "i-down")}</span></button>
+      <button class="nav" data-cal="1" aria-label="${calOpen ? "Следующий месяц" : "Следующая неделя"}">${icon("i-right")}</button></div>
     <div class="cal-grid">${cells}</div>
-    ${calOpen ? `<div class="legend"><span><i class="d-task"></i>дела</span><span><i class="d-event"></i>вместе</span><span><i class="d-busy"></i>кто-то занят</span><span><i class="d-hot"></i>горит</span></div>` : ""}</div>
-    <h3 style="text-transform:none">📌 ${esc(label)} <small>${sel.length || ""}</small></h3>${list}`;
+    <div class="legend"><span><span class="dots"><i class="d-ours"></i></span>вместе</span><span><span class="dots"><i class="d-mine"></i></span>личное</span><span><span class="dots"><i class="d-busy"></i></span>занят</span><span><span class="dots"><i class="d-hot"></i></span>горит</span></div></div>
+    <div class="day-label">${esc(label.charAt(0).toUpperCase() + label.slice(1))} <small>${sel.length ? sel.length + " " + plural(sel.length, "запись", "записи", "записей") : ""}</small></div>${list}`;
 }
 
-$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { tab = b.dataset.tab; render(); } };
+// ---------- interactions ----------
+const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { tab = b.dataset.tab; render(); $("tabs").scrollIntoView({block:"start"}); } };
 
-$("list").onclick = async e => {
+$("summary").onclick = e => {
+  const g = e.target.closest("[data-goto]"); if (!g) return;
+  tab = g.dataset.goto === "hot" ? "tasks" : g.dataset.goto;
+  if (g.dataset.day) { calDay = g.dataset.day; calWeek = monday(new Date(calDay + "T12:00")); calOpen = false; }
+  render();
+  const target = g.dataset.goto === "hot" && $("sec-hot");
+  (target || $("tabs")).scrollIntoView({behavior: smooth(), block: "start"});
+};
+
+const DONE_LINES = ["Опа. Человек слова!", "Обещание выполнено.", "Готово. Вторая половина уже в курсе."];
+document.body.addEventListener("click", async e => {
+  if (e.target.closest("[data-retry]")) return load(true);
+  if (e.target.closest("[data-close-app]")) return tg && tg.close();
+  if (!e.target.closest("#list")) return;
   const nav = e.target.closest("[data-cal]"), day = e.target.closest("[data-day]");
   if (e.target.closest("[data-caltoggle]")) {
     calOpen = !calOpen;
@@ -375,55 +690,121 @@ $("list").onclick = async e => {
   if (day) { calDay = day.dataset.day; render(); return; }
   const d = e.target.closest("[data-done]");
   if (d) {
-    const id = +d.dataset.done, el = $("i" + id);
+    const id = +d.dataset.done, el = $("i" + id), it = S.items.find(i => i.id === id);
+    if (el.classList.contains("done")) return;
     el.classList.add("done"); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success");
-    try { await api(`/api/items/${id}/done`, {method:"POST"}); } catch(err){ toast(err.message); el.classList.remove("done"); return; }
-    setTimeout(() => { el.classList.add("gone"); setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); }, 350); }, 450);
-    toast(["Готово! Вторая половина уже в курсе 😏","Свершилось. Бот удивлён.","Записано в семейную летопись подвигов."][id % 3]);
+    try { await api(`/api/items/${id}/done`, {method:"POST"}); }
+    catch(err){ el.classList.remove("done"); toast("Не отметилось: " + err.message, "bad"); return; }
+    // The card fades out; «Вернуть» cancels that if it comes first, so the list never drops a restored item.
+    const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); }, 260); }, 500);
+    let t2 = 0;
+    toast(it && it.kind === "buy" ? "Куплено. Холодильник благодарит." : DONE_LINES[id % 3], "good", 6000, {label: "Вернуть", run: async () => {
+      clearTimeout(t1); clearTimeout(t2);
+      try { await api(`/api/items/${id}/undo`, {method:"POST"}); toast("Вернул в список.", "good"); }
+      catch(err){ toast("Не вернулось: " + err.message, "bad"); }
+      await load();
+    }});
     return;
   }
   const m = e.target.closest("[data-more]");
   if (m) openSheet(S.items.find(i => i.id === +m.dataset.more));
-};
+});
 
+function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); }
 function openSheet(it){
-  const rows = [];
+  if (!it) return;
+  const rows = [], cur = it.assignee == null ? "both" : it.assignee === S.me.id ? "me" : "partner";
+  const mark = w => w === cur ? `<span class="cur">${icon("i-check")}сейчас</span>` : "";
   if (it.kind === "task" || it.kind === "event") {
-    rows.push(`<button data-who="me">🙋 Это на мне</button>`);
-    if (S.partner) rows.push(`<button data-who="partner">🤝 Передать: ${esc(S.partner.name)}</button>`);
-    rows.push(`<button data-who="both">💞 Делаем вместе</button>`);
+    rows.push(`<button class="opt" data-who="me">${icon("i-user")}<span>Это на мне</span>${mark("me")}</button>`);
+    if (S.partner) rows.push(`<button class="opt" data-who="partner">${icon("i-send")}<span>Передать: ${esc(S.partner.name)}</span>${mark("partner")}</button>`);
+    rows.push(`<button class="opt" data-who="both">${icon("i-users")}<span>Делаем вместе</span>${mark("both")}</button>`);
   }
-  rows.push(`<button class="red" data-del="1">🗑 Удалить</button><button data-close="1">Отмена</button>`);
-  $("sheet-body").innerHTML = `<div class="title">${pic(it)} ${esc(it.text)}</div>` + rows.join("");
-  $("sheet").classList.add("on");
+  if (it.day && (it.warnings || []).length) rows.push(`<button class="opt" data-openday="${it.day}">${icon("i-cal")}<span>Открыть этот день в календаре</span></button>`);
+  rows.push(`<button class="opt" data-edit="1">${icon("p-tool")}<span>${it.kind === "buy" || it.weekday != null ? "Изменить название" : "Изменить название или срок"}</span></button>`);
+  rows.push(`<button class="opt danger" data-del="1">${icon("i-trash")}<span>Удалить</span></button><button class="opt cancel" data-close="1">Отмена</button>`);
+  const sub = [it.when, (it.warnings || []).length ? "есть накладка" : ""].filter(Boolean).join(" · ");
+  const dated = it.kind !== "buy" && it.weekday == null;
+  const form = `<form class="edit" id="edit" hidden>
+      <label>Название<input name="text" maxlength="300" value="${esc(it.text)}" autocomplete="off"></label>
+      ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>Время<input type="time" name="time" value="${esc(it.time || "")}"></label></div>` : ""}
+      <div class="err" id="edit-err" role="alert"></div>
+      <button class="btn" type="submit">Сохранить</button></form>`;
+  $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon(pic(it))}</span><div><b>${esc(it.text)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div></div>`
+    + (it.warnings || []).map(w => `<div class="warn" style="margin:var(--s2) 0">${icon("i-alert")}<span>${warnLabel(clean(w))}</span></div>`).join("")
+    + form + rows.join("");
+  $("edit").onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData($("edit")), body = {text: f.get("text")};
+    if (dated) { body.day = f.get("day") || null; body.time = f.get("time") || null; }
+    const btn = $("edit").querySelector(".btn"); if (btn.disabled) return;
+    btn.disabled = true; $("edit-err").textContent = "";
+    try { await api(`/api/items/${it.id}`, {method:"PATCH", body:JSON.stringify(body)}); }
+    catch(err){ $("edit-err").textContent = err.message; btn.disabled = false; return; }
+    toast("Исправлено.", "good"); closeSheet(); await load();
+  };
+  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
-    if (e.target === $("sheet") || (b && b.dataset.close)) return $("sheet").classList.remove("on");
-    if (!b) return;
+    if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (!b || b.closest(".edit")) return;
+    if (b.dataset.edit) { $("edit").hidden = false; b.hidden = true; $("edit").querySelector("input").focus(); return; }
+    if (b.dataset.openday) {
+      closeSheet(); tab = "month"; calDay = b.dataset.openday; calWeek = monday(new Date(calDay + "T12:00")); calOpen = false;
+      render(); $("tabs").scrollIntoView({block:"start"}); return;
+    }
+    if (b.dataset.del && !b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Точно удалить? Нажмите ещё раз"; return; }
     try {
-      if (b.dataset.del) await api(`/api/items/${it.id}`, {method:"DELETE"});
-      if (b.dataset.who) await api(`/api/items/${it.id}/who`, {method:"POST", body:JSON.stringify({who:b.dataset.who})});
-    } catch(err){ toast(err.message); }
-    $("sheet").classList.remove("on");
+      if (b.dataset.del) { await api(`/api/items/${it.id}`, {method:"DELETE"}); toast("Удалено.", "good"); }
+      if (b.dataset.who) { await api(`/api/items/${it.id}/who`, {method:"POST", body:JSON.stringify({who:b.dataset.who})}); toast(b.dataset.who === "partner" ? "Передано. Без обид." : "Готово, переназначено.", "good"); }
+    } catch(err){ toast("Не сохранилось: " + err.message, "bad"); }
+    closeSheet();
     await load();
   };
 }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
 
+// The draft survives an accidental close or a failed save.
+$("input").value = store.get("draft");
+$("input").oninput = () => store.set("draft", $("input").value);
+let sending = false;  // one request at a time: a double tap or Enter+tap must not save the line twice
 $("form").onsubmit = async e => {
   e.preventDefault();
-  const text = $("input").value.trim(); if (!text) return;
-  $("input").value = "";
+  if (sending) return;
+  const text = $("input").value.trim(); if (!text) return $("input").focus();
+  sending = true; $("add").disabled = true; $("composer").classList.add("busy"); $("form").setAttribute("aria-busy", "true");
   try {
     const r = await api("/api/add", {method:"POST", body:JSON.stringify({text})});
+    $("input").value = ""; store.set("draft", "");
     const it = r.items[0];
     tab = it.kind === "buy" ? "buy" : it.kind === "busy" ? "busy" : "tasks";
     const warn = r.items.flatMap(i => i.warnings || []);
-    toast(warn.length ? warn[0] : `Записал: ${r.items.map(i => i.text).join(", ")}`);
-  } catch(err){ toast(err.message); $("input").value = text; return; }
-  await load();
+    if (warn.length) toast(clean(warn[0]), "bad", 7000);
+    else toast(`Записал: ${r.items.map(i => i.text).join(", ")}`, "good");
+    await load();
+    r.items.forEach(i => { const el = $("i" + i.id); if (el) { el.classList.add("fresh"); el.scrollIntoView({block:"nearest", behavior: smooth()}); } });
+  } catch(err){ toast(err.status === 400 ? err.message : "Не сохранилось: " + err.message + " Текст остался в поле.", "bad", 6000); }
+  finally { sending = false; $("add").disabled = false; $("composer").classList.remove("busy"); $("form").removeAttribute("aria-busy"); }
 };
 
-load();
+// The shell is exactly as tall as what is visible: the on-screen keyboard (iOS keeps the page under it, Android
+// resizes) and Telegram's half-open sheet both shrink the list area, and the composer stays right above.
+function fit(){
+  const vv = window.visualViewport, h = vv ? vv.height : innerHeight;
+  const root = document.documentElement.style;
+  root.setProperty("--app-h", Math.round(h) + "px");
+  root.setProperty("--app-top", Math.round(vv ? vv.offsetTop : 0) + "px");
+  document.body.classList.toggle("kb-open", innerHeight - h > 120 || (!!tg && tg.viewportStableHeight > 0 && tg.viewportStableHeight - h > 120));
+}
+fit();
+if (window.visualViewport) { visualViewport.addEventListener("resize", fit); visualViewport.addEventListener("scroll", fit); }
+window.addEventListener("resize", fit);
+if (tg && tg.onEvent) tg.onEvent("viewportChanged", fit);
+// iOS scrolls the whole page to reveal a focused field; the shell already moved, so put the page back.
+$("input").addEventListener("focus", () => setTimeout(() => { window.scrollTo(0, 0); fit(); }, 50));
+window.addEventListener("online", () => S || load(true));
+
+load(true);
 </script>
 </body>
 </html>

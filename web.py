@@ -5,12 +5,12 @@ never from the request body. Adding goes through planner.add_text, the same path
 """
 import logging
 from pathlib import Path
-from urllib.parse import unquote
 
 from aiohttp import web
 
 import bot as chat
 import db
+import parser
 import planner
 import webapp_auth
 from config import config
@@ -27,7 +27,8 @@ def _err(text: str, status: int = 400) -> web.Response:
 @web.middleware
 async def auth(request: web.Request, handler):
     if request.path.startswith("/api/"):
-        user = webapp_auth.verify(unquote(request.headers.get("X-Init-Data", "")), config.bot_token)
+        # The header carries Telegram.WebApp.initData as is (a query string); verify() decodes it once.
+        user = webapp_auth.verify(request.headers.get("X-Init-Data", ""), config.bot_token)
         if not user:
             return _err("Откройте планер из Telegram-бота.", 401)
         uid = int(user["id"])
@@ -43,7 +44,7 @@ def _item(row, today) -> dict:
     return {
         "id": row["id"], "kind": row["kind"], "text": row["text"], "status": row["status"],
         "assignee": row["assignee_id"], "assignee_name": planner.name(row["assignee_id"]),
-        "author": row["author_id"], "when": planner.when_text(row, today), "day": row["day"],
+        "author": row["author_id"], "when": planner.when_text(row, today), "day": row["day"], "time": row["time"],
         "hot": planner.is_hot(row, today),
         "weekday": row["weekday"],
         "warnings": planner.warnings(row),
@@ -57,9 +58,10 @@ async def state(request: web.Request) -> web.Response:
     today = db.local_now().date()
     invite = ""
     if not p and request.app.get(BOT):
-        invite = await chat.invite_link(request.app[BOT], uid)
+        invite = await chat.invite_link(request.app[BOT], uid) or ""
     return web.json_response({
         "brand": config.brand,
+        "today": today.isoformat(),  # the bot's calendar day (TZ from config), not the phone's
         "me": {"id": uid, "name": u["name"]},
         "partner": {"id": p["id"], "name": p["name"]} if p else None,
         "invite": invite,
@@ -74,7 +76,12 @@ async def add(request: web.Request) -> web.Response:
         return _err("Пустой запрос")
     if not text:
         return _err("Напишите, что не забыть")
-    rows, notes = planner.add_text(request["uid"], text)
+    intent = parser.intent(text, db.local_now().date())
+    if intent == "chat":
+        return _err("Это не похоже на дело. Напишите, что сделать, купить или когда кто занят.")
+    if intent == "unclear":
+        return _err("Маловато слов. Уточните: «купить молоко» или «вкрутить лампочку до субботы».")
+    rows, notes = await planner.add_text_async(request["uid"], text)
     if not rows:
         return _err("Не понял, что записать. Скажите проще: что сделать и когда.")
     if request.app.get(BOT):
@@ -99,9 +106,28 @@ async def done(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def undo(request: web.Request) -> web.Response:
+    if not planner.undo_done(request["uid"], _id(request)):
+        return _err("Нечего возвращать", 404)
+    return web.json_response({"ok": True})
+
+
+async def change(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return _err("Пустой запрос")
+    ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in ("text", "day", "time") if k in body})
+    if not ok:
+        return _err(error, 404 if error == "Запись не найдена" else 400)
+    row = db.item(_id(request), db.user(request["uid"])["couple_id"])
+    return web.json_response({"item": _item(row, db.local_now().date())})
+
+
 async def remove(request: web.Request) -> web.Response:
-    u = db.user(request["uid"])
-    if not db.delete_item(_id(request), u["couple_id"]):
+    if not planner.remove(request["uid"], _id(request)):
         return _err("Запись не найдена", 404)
     return web.json_response({"ok": True})
 
@@ -113,6 +139,9 @@ async def who(request: web.Request) -> web.Response:
         value = None
     if value not in ("me", "partner", "both") or not planner.reassign(request["uid"], _id(request), value):
         return _err("Не получилось переназначить")
+    if request.app.get(BOT):
+        row = db.item(_id(request), db.user(request["uid"])["couple_id"])
+        await chat.send(request.app[BOT], planner.assigned_notes(request["uid"], row))
     return web.json_response({"ok": True})
 
 
@@ -135,5 +164,7 @@ def build_app(bot=None) -> web.Application:
     app.router.add_post("/api/add", add)
     app.router.add_post("/api/items/{id}/done", done)
     app.router.add_post("/api/items/{id}/who", who)
+    app.router.add_post("/api/items/{id}/undo", undo)
+    app.router.add_patch("/api/items/{id}", change)
     app.router.add_delete("/api/items/{id}", remove)
     return app

@@ -17,10 +17,8 @@ def clock(monkeypatch):
 
 
 def test_join_rules(couple):
-    code = db.couple_code(1)
-    assert db.join(2, code) == "self"
+    assert db.invite_code(1) is None  # the couple is full: no new invites (more cases in test_invites.py)
     db.save_user(3, "Третий")
-    assert db.join(3, code) == "full"
     assert db.join(3, "nope") == "unknown"
     assert db.partner(1)["name"] == "Дима"
 
@@ -29,7 +27,7 @@ def test_items_made_alone_move_to_the_couple():
     db.save_user(1, "Маша")
     db.save_user(2, "Дима")
     planner.add_text(2, "купить пиво")  # Дима starts alone
-    assert db.join(2, db.couple_code(1)) == "ok"
+    assert db.join(2, db.invite_code(1)) == "ok"
     assert [r["text"] for r in db.items(db.user(1)["couple_id"], "buy")] == ["Пиво"]
 
 
@@ -51,7 +49,8 @@ def test_joint_plan_on_busy_day_warns(couple):
     planner.add_text(2, "По субботам у меня баня")
     rows, _ = planner.add_text(1, "В субботу едем к маме")
     warn = planner.warnings(rows[0])
-    assert len(warn) == 1 and "Дима занят(а)" in warn[0] and "баня" in warn[0].lower()
+    assert len(warn) == 1 and "Накладка" in warn[0] and "(Дима)" in warn[0] and "баня" in warn[0].lower()
+    assert "занят(а)" not in warn[0]  # no gender guessing in the text shown on the card
 
 
 def test_busy_day_on_top_of_joint_plan_warns(couple):
@@ -154,7 +153,7 @@ def test_overdue_and_long_hanging_tasks_burn(couple):
     assert planner.is_hot(late, today) and planner.when_text(late, today) == "просрочено на 2 дня"
     assert planner.line(late, today).startswith("🔥")
     yesterday = db.item(db.add_item(couple, 1, "event", "Кино", None, "2026-10-21"), couple)
-    assert planner.when_text(yesterday, today) == "просрочено со вчера"
+    assert planner.when_text(yesterday, today) == "было вчера" and not planner.is_hot(yesterday, today)
     fresh = db.item(db.add_item(couple, 1, "task", "Позвонить маме", 1, "2026-10-22"), couple)
     assert not planner.is_hot(fresh, today)
     rows, _ = planner.add_text(1, "Ты обещал вкрутить лампочку")
@@ -164,3 +163,80 @@ def test_overdue_and_long_hanging_tasks_burn(couple):
     assert planner.is_hot(db.item(rows[0]["id"], couple), today)
     busy = db.item(db.add_item(couple, 2, "busy", "Баня", 2, "2026-10-18"), couple)
     assert not planner.is_hot(busy, today)  # someone's past football is not a fire
+
+
+def test_day_14_retention_counts_couples_where_both_are_active(couple, clock):
+    planner.add_text(1, "Ты обещал вкрутить лампочку")
+    assert db.retention(14) == {"couples": 0, "active": 0}  # the couple is a day old
+    clock["now"] = NOW + dt.timedelta(days=14)
+    assert db.retention(14) == {"couples": 1, "active": 0}  # nobody did anything this week
+    rows, _ = planner.add_text(1, "Ты обещал повесить полку")
+    assert db.retention(14)["active"] == 0  # only Маша
+    planner.done(2, rows[0]["id"])
+    assert db.retention(14) == {"couples": 1, "active": 1}
+    db.delete_user(2)
+    assert db.retention(14) == {"couples": 0, "active": 0}  # no longer a couple, and Дима's activity is gone
+
+
+def test_past_joint_plan_is_history_not_a_fire(couple):
+    old = db.item(db.add_item(couple, 1, "event", "Кино", None, "2026-10-19"), couple)
+    assert not planner.is_hot(old, NOW.date()) and planner.when_text(old, NOW.date()) == "было 3 дня назад"
+    assert not any("Кино" in o.text for o in planner.morning(NOW.date()))  # no overdue nudge for the past cinema
+
+
+def test_undo_done_brings_item_back(couple):
+    rows, _ = planner.add_text(1, "Ты обещал вкрутить лампочку")
+    iid = rows[0]["id"]
+    assert not planner.undo_done(1, iid)  # still open: nothing to undo
+    planner.done(2, iid)
+    assert planner.undo_done(2, iid) and db.item(iid, couple)["status"] == "open"
+    db.save_user(9, "Чужой"); db.couple_code(9)
+    planner.done(2, iid)
+    assert not planner.undo_done(9, iid)
+
+
+def test_edit_text_date_time_and_rearm_reminder(couple, clock):
+    rows, _ = planner.add_text(1, "Ты обещал сегодня в 10:00 забрать посылку")
+    iid = rows[0]["id"]
+    planner.due(NOW.replace(hour=10))
+    assert db.item(iid, couple)["reminded"] == 1
+    assert planner.edit(1, iid, {"text": "  Забрать   посылку на почте ", "day": "2026-10-23", "time": "18:30"}) == (True, "")
+    row = db.item(iid, couple)
+    assert (row["text"], row["day"], row["time"], row["reminded"]) == ("Забрать посылку на почте", "2026-10-23", "18:30", 0)
+    assert planner.edit(1, iid, {"day": None, "time": None})[0]
+    assert db.item(iid, couple)["day"] is None
+
+
+@pytest.mark.parametrize("changes, error", [
+    ({"text": "   "}, "Название не может быть пустым"),
+    ({"day": "31.10"}, "Не понял дату"),
+    ({"day": "2026-02-30"}, "Не понял дату"),
+    ({"time": "25:00"}, "Время нужно в виде 18:30"),
+    ({"time": "18:30"}, "Время без даты не сработает: укажите и дату"),
+    ({}, "Нечего менять"),
+])
+def test_edit_rejects_bad_input(couple, changes, error):
+    rows, _ = planner.add_text(1, "Ты обещал вкрутить лампочку")
+    assert planner.edit(1, rows[0]["id"], changes) == (False, error)
+    assert db.item(rows[0]["id"], couple)["text"] == "Вкрутить лампочку"
+
+
+def test_edit_is_scoped_to_the_couple_and_open_items(couple):
+    rows, _ = planner.add_text(1, "Ты обещал вкрутить лампочку")
+    db.save_user(9, "Чужой"); db.couple_code(9)
+    assert planner.edit(9, rows[0]["id"], {"text": "взлом"}) == (False, "Запись не найдена")
+    planner.done(1, rows[0]["id"])
+    assert planner.edit(1, rows[0]["id"], {"text": "поздно"}) == (False, "Запись не найдена")
+
+
+def test_weekly_busy_day_keeps_its_schedule(couple):
+    rows, _ = planner.add_text(2, "По четвергам у меня футбол")
+    assert planner.edit(2, rows[0]["id"], {"day": "2026-10-30"})[0] is False
+    assert planner.edit(2, rows[0]["id"], {"text": "Мини-футбол"})[0] is True
+
+
+def test_conflict_date_uses_the_bot_timezone(couple, clock):
+    clock["now"] = dt.datetime(2026, 10, 23, 1, 0)  # 01:00 local: the server's UTC calendar may still say the 22nd
+    planner.add_text(2, "23.10 у меня баня")
+    rows, _ = planner.add_text(1, "23.10 едем к маме")
+    assert "сегодня" in planner.warnings(rows[0])[0]

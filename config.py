@@ -27,6 +27,11 @@ class Config:
     # Public HTTPS address of this app on the hosting, e.g. https://family-user.amvera.io — turns on the mini-app.
     webapp_url: str = env("WEBAPP_URL", "").rstrip("/")
     port: int = int(env("PORT", "80") or 80)
+    # Cost guard: per person per day. Past the limit phrases go to the simple rules, voice asks for text.
+    ai_daily_limit: int = int(env("AI_DAILY_LIMIT", "50") or 50)
+    voice_daily_limit: int = int(env("VOICE_DAILY_LIMIT", "20") or 20)
+    # Telegram ids allowed to run /stats (comma-separated). Empty: /stats is off.
+    admin_ids: frozenset = frozenset(int(x) for x in env("ADMIN_IDS", "").replace(" ", "").split(",") if x.isdigit())
 
     @property
     def ai_enabled(self) -> bool:

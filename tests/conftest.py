@@ -25,7 +25,7 @@ def fresh_db():
 def couple():
     """Маша (1) and Дима (2) in one couple. Returns the couple id."""
     db.save_user(1, "Маша")
-    code = db.couple_code(1)
+    code = db.invite_code(1)
     db.save_user(2, "Дима")
     assert db.join(2, code) == "ok"
     return db.user(1)["couple_id"]

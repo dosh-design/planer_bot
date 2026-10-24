@@ -38,7 +38,12 @@
 | `WEBAPP_URL` | адрес приложения на Amvera, например `https://family-bot-rabbit2790.amvera.io` |
 
 Необязательные: `YANDEX_TEXT_MODEL` (по умолчанию `yandexgpt-lite/latest`), `TZ_NAME` (`Europe/Moscow`),
-`MORNING_HOUR` (10), `NUDGE_AFTER_DAYS` (3), `NUDGE_EVERY_DAYS` (3), `BRAND`.
+`MORNING_HOUR` (10), `NUDGE_AFTER_DAYS` (3), `NUDGE_EVERY_DAYS` (3), `BRAND`,
+`AI_DAILY_LIMIT` (50 разборов моделью на человека в день, дальше правила), `VOICE_DAILY_LIMIT` (20 голосовых),
+`ADMIN_IDS` (id через запятую, кому доступна /stats с метрикой «пары активны на 14-й день»).
+
+Приглашение в пару одноразовое и живёт 48 часов; новая ссылка из /invite отменяет старую.
+Приветствия, «спасибо» и вопросы задачами не становятся, а про одно-два слова без глагола бот переспрашивает кнопками.
 
 Без Yandex-ключей бот работает, но голос выключен, а фразы разбирают простые правила.
 

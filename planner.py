@@ -2,6 +2,7 @@
 
 Nothing here talks to Telegram: functions return Out messages (chat id, text, buttons), and the bot sends them.
 """
+import asyncio
 import datetime as dt
 import html
 from dataclasses import dataclass, field
@@ -49,12 +50,13 @@ def hangs_days(row, today: dt.date) -> int:
 
 
 def is_hot(row, today: dt.date | None = None) -> bool:
-    """Burning: a chore or plan past its date, or a promise without a date hanging longer than HOT_AFTER_DAYS."""
+    """Burning: a chore past its date, or a promise without a date hanging longer than HOT_AFTER_DAYS.
+    A joint plan whose day has passed is history, not a fire: nobody can still go to yesterday's cinema."""
     today = today or db.local_now().date()
     if row["kind"] not in ("task", "event") or row["status"] != "open":
         return False
     if row["day"]:
-        return row["day"] < today.isoformat()
+        return row["kind"] == "task" and row["day"] < today.isoformat()
     return row["kind"] == "task" and hangs_days(row, today) >= HOT_AFTER_DAYS
 
 
@@ -64,6 +66,8 @@ def when_text(row, today: dt.date | None = None) -> str:
         return WEEKLY[row["weekday"]]
     if row["kind"] in ("task", "event") and row["day"] and row["day"] < today.isoformat():
         late = (today - dt.date.fromisoformat(row["day"])).days
+        if row["kind"] == "event":
+            return "было вчера" if late == 1 else f"было {jokes.plural_days(late)} назад"
         return "просрочено со вчера" if late == 1 else f"просрочено на {jokes.plural_days(late)}"
     if row["kind"] == "task" and not row["day"]:
         hangs = hangs_days(row, today)
@@ -94,28 +98,56 @@ def item_buttons(row) -> list[list[tuple[str, str]]]:
 
 def warnings(row) -> list[str]:
     """Joint plan on someone's busy day, or a busy day on top of a joint plan."""
-    out = []
+    out, today = [], db.local_now().date()
     if row["kind"] == "event" and row["day"]:
         for b in db.busy_on(row["couple_id"], row["day"]):
-            out.append(jokes.CONFLICT.format(day=parser.human_date(row["day"]), who=esc(name(b["assignee_id"])),
+            out.append(jokes.CONFLICT.format(day=parser.human_date(row["day"], today=today), who=esc(name(b["assignee_id"])),
                                              what=esc(b["text"])))
     if row["kind"] == "busy" and (row["day"] or row["weekday"] is not None):
         for e in db.events_on(row["couple_id"], row["day"], row["weekday"]):
-            out.append(jokes.BUSY_CLASH.format(day=parser.human_date(e["day"]), what=esc(e["text"])))
+            out.append(jokes.BUSY_CLASH.format(day=parser.human_date(e["day"], today=today), what=esc(e["text"])))
     return out
 
 
-def add_text(uid: int, text: str, forwarded: str = "") -> tuple[list, list[Out]]:
-    """Parse a phrase and save its items. Returns (saved rows, messages for the partner)."""
+def _parse_args(uid: int, text: str, forwarded: str) -> dict | None:
     u = db.user(uid)
     if not u:
-        return [], []
+        return None
     if not u["couple_id"]:
         db.couple_code(uid)
-        u = db.user(uid)
     p = db.partner(uid)
-    today = db.local_now().date()
-    parsed = parser.parse(text, today, author=u["name"], partner=p["name"] if p else "партнёр", forwarded=forwarded)
+    return dict(text=text, today=db.local_now().date(), author=u["name"], partner=p["name"] if p else "партнёр",
+                forwarded=forwarded)
+
+
+def add_text(uid: int, text: str, forwarded: str = "", allow_model: bool = True) -> tuple[list, list[Out]]:
+    """Parse a phrase and save its items. Returns (saved rows, messages for the partner).
+    Blocking when the text model is on: the bot and the mini-app use add_text_async.
+    Nothing is saved and nobody is notified for small talk or unclear fragments (parser.intent)."""
+    args = _parse_args(uid, text, forwarded)
+    if not args:
+        return [], []
+    return add_parsed(uid, parser.parse(**args, allow_model=allow_model))
+
+
+def model_budget(uid: int) -> bool:
+    """Count one text-model call for today; False once the person is over AI_DAILY_LIMIT."""
+    key = f"ai:{uid}:{db.local_now().date().isoformat()}"
+    used = int(db.kv_get(key) or 0)
+    if used >= config.ai_daily_limit:
+        return False
+    db.kv_set(key, str(used + 1))
+    return True
+
+
+async def add_text_async(uid: int, text: str, forwarded: str = "") -> tuple[list, list[Out]]:
+    """add_text for the event loop: the model call runs in a worker thread, so a slow Yandex answer
+    holds up only this phrase, not other people's messages, the mini-app or the reminders."""
+    args = _parse_args(uid, text, forwarded)
+    if not args:
+        return [], []
+    use_model = (config.ai_enabled and parser.intent(text, args["today"]) == "do" and model_budget(uid))
+    parsed = await asyncio.to_thread(parser.parse, **args, allow_model=use_model)
     return add_parsed(uid, parsed)
 
 
@@ -127,16 +159,26 @@ def add_parsed(uid: int, parsed: list) -> tuple[list, list[Out]]:
         assignee = assignee_for(uid, it.who) if it.kind != "buy" else None
         iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly)
         rows.append(db.item(iid, u["couple_id"]))
+    if rows:
+        db.touch(uid)
     if p:
-        mine = [r for r in rows if r["kind"] != "buy" and r["assignee_id"] in (p["id"], None)]
-        for r in mine:
-            notes.append(Out(p["id"], f"📌 {esc(u['name'])} записал(а) на тебя: {line(r)}\n"
-                                      "Отвертеться не выйдет, бот уже запомнил.", item_buttons(r)[:1]))
+        for r in rows:
+            notes += assigned_notes(uid, r)
         buys = [r for r in rows if r["kind"] == "buy"]
         if buys:
             notes.append(Out(p["id"], f"🛒 {esc(u['name'])} добавил(а) в покупки: "
                                       + ", ".join(esc(r["text"]) for r in buys)))
     return rows, notes
+
+
+def assigned_notes(uid: int, row) -> list[Out]:
+    """Tell the partner that something landed on them (or on both of them); same text from the chat and the mini-app."""
+    u, p = db.user(uid), db.partner(uid)
+    if not p or row["kind"] == "buy" or row["assignee_id"] not in (p["id"], None):
+        return []
+    whom = "на тебя" if row["assignee_id"] == p["id"] else "на вас обоих"
+    return [Out(p["id"], f"📌 {esc(u['name'])} записал(а) {whom}: {line(row)}\n"
+                         "Отвертеться не выйдет, бот уже запомнил.", item_buttons(row)[:1])]
 
 
 def done(uid: int, item_id: int) -> tuple[bool, list[Out]]:
@@ -145,6 +187,7 @@ def done(uid: int, item_id: int) -> tuple[bool, list[Out]]:
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
     if not row or not db.set_done(item_id, u["couple_id"]):
         return False, []
+    db.touch(uid)
     notes = []
     p = db.partner(uid)
     if p and row["kind"] == "task":
@@ -153,9 +196,74 @@ def done(uid: int, item_id: int) -> tuple[bool, list[Out]]:
     return True, notes
 
 
+def undo_done(uid: int, item_id: int) -> bool:
+    """Put an item ticked off by mistake back on the list (the partner is not told twice)."""
+    u = db.user(uid)
+    row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
+    if not row or row["status"] != "done" or not db.set_done(item_id, u["couple_id"], done=False):
+        return False
+    db.touch(uid)
+    return True
+
+
+def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
+    """Fix the text, the date or the time of an open item. Returns (ok, error text for the user).
+    A new date or time arms the exact-time reminder again."""
+    u = db.user(uid)
+    row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
+    if not row or row["status"] != "open":
+        return False, "Запись не найдена"
+    fields = {}
+    if "text" in changes:
+        text = " ".join(str(changes["text"] or "").split())
+        if not text:
+            return False, "Название не может быть пустым"
+        fields["text"] = text[:300]
+    for key, check in (("day", _valid_day), ("time", _valid_time)):
+        if key in changes:
+            value = changes[key] or None
+            if value is not None and not check(value):
+                return False, "Не понял дату" if key == "day" else "Время нужно в виде 18:30"
+            fields[key] = value
+    if row["weekday"] is not None and ("day" in fields or "time" in fields):
+        return False, "Повторяющееся дело меняется сообщением боту"
+    if "time" in fields and fields["time"] and not fields.get("day", row["day"]):
+        return False, "Время без даты не сработает: укажите и дату"
+    if not fields:
+        return False, "Нечего менять"
+    db.update_item(item_id, u["couple_id"], **fields)
+    db.touch(uid)
+    return True, ""
+
+
+def _valid_day(value) -> bool:
+    try:
+        return bool(dt.date.fromisoformat(str(value))) and len(str(value)) == 10
+    except ValueError:
+        return False
+
+
+def _valid_time(value) -> bool:
+    try:
+        return bool(dt.datetime.strptime(str(value), "%H:%M")) and len(str(value)) == 5
+    except ValueError:
+        return False
+
+
 def reassign(uid: int, item_id: int, who: str) -> bool:
     u = db.user(uid)
-    return bool(u and u["couple_id"] and db.set_assignee(item_id, u["couple_id"], assignee_for(uid, who)))
+    ok = bool(u and u["couple_id"] and db.set_assignee(item_id, u["couple_id"], assignee_for(uid, who)))
+    if ok:
+        db.touch(uid)
+    return ok
+
+
+def remove(uid: int, item_id: int) -> bool:
+    u = db.user(uid)
+    ok = bool(u and u["couple_id"] and db.delete_item(item_id, u["couple_id"]))
+    if ok:
+        db.touch(uid)
+    return ok
 
 
 # ---------- reminders ----------
