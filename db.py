@@ -65,7 +65,13 @@ def init() -> None:
                 done_at TEXT,
                 reminded INTEGER NOT NULL DEFAULT 0,
                 nudges INTEGER NOT NULL DEFAULT 0,
-                last_nudge TEXT
+                last_nudge TEXT,
+                note TEXT NOT NULL DEFAULT '',  -- details the couple adds to a task
+                position INTEGER,               -- hand order inside a project stage; NULL = by date
+                remind_before INTEGER,          -- minutes before the due moment; NULL = at the time, -1 = no reminder
+                section_id INTEGER,             -- a stage of the project (project_sections.id)
+                series_id INTEGER,              -- repeating task: id of its first instance; NULL for one-offs
+                plan_day TEXT                   -- the date the series planned for this instance (a move keeps it)
             );
             CREATE INDEX IF NOT EXISTS items_couple ON items(couple_id, status);
             -- A couple's bigger thing: «Ремонт кухни», «Отпуск». Its steps are items with project_id.
@@ -75,7 +81,17 @@ def init() -> None:
                 name TEXT NOT NULL,
                 about TEXT NOT NULL DEFAULT '',
                 author_id INTEGER NOT NULL,
-                created TEXT NOT NULL
+                created TEXT NOT NULL,
+                start_day TEXT,
+                end_day TEXT
+            );
+            -- Stages of a project: «Демонтаж», «Черновые работы». Deleting a stage keeps its tasks in the project.
+            CREATE TABLE IF NOT EXISTS project_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                couple_id INTEGER NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0
             );
             CREATE UNIQUE INDEX IF NOT EXISTS projects_name ON projects(couple_id, name COLLATE NOCASE);
             CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -130,9 +146,18 @@ def init() -> None:
         )
         # Bases made before these columns existed: add them, keep every row as it is.
         have = {r[1] for r in c.execute("PRAGMA table_info(items)")}
-        for col, kind in (("end_time", "TEXT"), ("repeat", "TEXT"), ("project_id", "INTEGER")):
+        for col, kind in (("end_time", "TEXT"), ("repeat", "TEXT"), ("project_id", "INTEGER"),
+                          ("note", "TEXT NOT NULL DEFAULT ''"), ("position", "INTEGER"), ("remind_before", "INTEGER"),
+                          ("section_id", "INTEGER"), ("series_id", "INTEGER"), ("plan_day", "TEXT")):
             if col not in have:
                 c.execute(f"ALTER TABLE items ADD COLUMN {col} {kind}")
+        have = {r[1] for r in c.execute("PRAGMA table_info(projects)")}
+        for col in ("start_day", "end_day"):
+            if col not in have:
+                c.execute(f"ALTER TABLE projects ADD COLUMN {col} TEXT")
+        # One row per planned date of a series: a retried «Сделано» cannot make the next instance twice.
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS items_series ON items(couple_id, series_id, plan_day)"
+                  " WHERE series_id IS NOT NULL")
         if "nudge_mode" not in {r[1] for r in c.execute("PRAGMA table_info(users)")}:
             c.execute("ALTER TABLE users ADD COLUMN nudge_mode TEXT NOT NULL DEFAULT 'humor'")
         # The game counts from the day it appeared: tasks overdue before that are not the chaos's points.
@@ -284,14 +309,20 @@ def delete_user(uid: int) -> None:
 
 def add_item(couple_id: int, author_id: int, kind: str, text: str, assignee_id: int | None = None,
              day: str | None = None, time: str | None = None, weekday: int | None = None,
-             end_time: str | None = None, repeat: str | None = None, project_id: int | None = None) -> int:
+             end_time: str | None = None, repeat: str | None = None, project_id: int | None = None,
+             note: str = "", section_id: int | None = None, remind_before: int | None = None) -> int:
     assert kind in KINDS
     with closing(_connect()) as c:
+        position = None
+        if project_id:  # a new step goes to the end of its stage
+            position = c.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM items WHERE project_id = ? AND couple_id = ?",
+                                 (project_id, couple_id)).fetchone()[0]
         return c.execute(
             "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, weekday, created, end_time,"
-            " repeat, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " repeat, project_id, note, section_id, remind_before, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (couple_id, kind, text[:300], author_id, assignee_id, day, time, weekday, _stamp(),
-             end_time if time else None, repeat if day else None, project_id),
+             end_time if time else None, repeat if day else None, project_id, (note or "")[:2000],
+             section_id if project_id else None, remind_before, position),
         ).lastrowid
 
 
@@ -323,13 +354,15 @@ def set_done(item_id: int, couple_id: int, done: bool = True) -> bool:
 
 
 def update_item(item_id: int, couple_id: int, **fields) -> bool:
-    """Change text/day/time/end_time; a moved date or time re-arms the exact-time reminder and the overdue nudges."""
-    allowed = {k: v for k, v in fields.items() if k in ("text", "day", "time", "end_time", "repeat")}
+    """Change an item's fields; a moved date or time (or another reminder moment) re-arms the reminder,
+    a moved date starts the overdue nudges over."""
+    allowed = {k: v for k, v in fields.items()
+               if k in ("text", "day", "time", "end_time", "repeat", "note", "remind_before", "section_id", "plan_day")}
     if not allowed:
         return False
     sets = ", ".join(f"{k} = ?" for k in allowed)
     args = list(allowed.values())
-    if "day" in allowed or "time" in allowed:
+    if "day" in allowed or "time" in allowed or "remind_before" in allowed:
         sets += ", reminded = 0"
     if "day" in allowed:  # a new deadline starts the overdue nudges over (the CASE sees the old day)
         sets += ", nudges = CASE WHEN day IS ? THEN nudges ELSE 0 END, last_nudge = CASE WHEN day IS ? THEN last_nudge END"
@@ -360,6 +393,70 @@ def roll_yearly(today: dt.date) -> None:
                 except ValueError:
                     d = dt.date(d.year + 1, 2, 28)
             c.execute("UPDATE items SET day = ?, reminded = 0 WHERE id = ?", (d.isoformat(), r["id"]))
+
+
+def next_instance(row, day: str, plan_day: str) -> int | None:
+    """The next instance of a repeating task, made when this one is done. The row that is done stays in history.
+    None when that instance already exists (a second tap, both partners at once)."""
+    series = row["series_id"] or row["id"]
+    with closing(_connect()) as c:
+        c.execute("UPDATE items SET series_id = ?, plan_day = COALESCE(plan_day, day) WHERE id = ? AND series_id IS NULL",
+                  (series, row["id"]))
+        try:
+            return c.execute(
+                "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, end_time, repeat, project_id,"
+                " note, section_id, remind_before, position, series_id, plan_day, created)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (row["couple_id"], row["kind"], row["text"], row["author_id"], row["assignee_id"], day, row["time"],
+                 row["end_time"], row["repeat"], row["project_id"], row["note"], row["section_id"], row["remind_before"],
+                 row["position"], series, plan_day, _stamp())).lastrowid
+        except sqlite3.IntegrityError:
+            return None
+
+
+def drop_next_instance(row, plan_day: str) -> bool:
+    """«Вернуть» on a repeating task: the next instance made by that tick goes, if nobody has touched it yet."""
+    with closing(_connect()) as c:
+        return c.execute("DELETE FROM items WHERE couple_id = ? AND series_id = ? AND plan_day = ? AND status = 'open'"
+                         " AND id != ?", (row["couple_id"], row["series_id"] or row["id"], plan_day, row["id"])).rowcount == 1
+
+
+def series_open(couple_id: int, series_id: int) -> sqlite3.Row | None:
+    with closing(_connect()) as c:
+        return c.execute("SELECT * FROM items WHERE couple_id = ? AND series_id = ? AND status = 'open' ORDER BY plan_day",
+                         (couple_id, series_id)).fetchone()
+
+
+def done_items(couple_id: int, kind: str | None = None, limit: int = 50) -> list[sqlite3.Row]:
+    """The latest finished items (history): done tasks, bought things."""
+    sql = "SELECT * FROM items WHERE couple_id = ? AND status = 'done'"
+    args: list = [couple_id]
+    if kind:
+        sql += " AND kind = ?"
+        args.append(kind)
+    with closing(_connect()) as c:
+        return c.execute(sql + " ORDER BY done_at DESC, id DESC LIMIT ?", (*args, limit)).fetchall()
+
+
+def move_item(item_id: int, couple_id: int, step: int) -> bool:
+    """Move a project step one place up (-1) or down (+1) among the open steps of its stage."""
+    with closing(_connect()) as c:
+        row = c.execute("SELECT * FROM items WHERE id = ? AND couple_id = ?", (item_id, couple_id)).fetchone()
+        if not row or not row["project_id"] or row["status"] != "open":
+            return False
+        rows = c.execute(
+            "SELECT id FROM items WHERE project_id = ? AND couple_id = ? AND status = 'open' AND section_id IS ?"
+            " ORDER BY position IS NULL, position, day IS NULL, day, time, id",
+            (row["project_id"], couple_id, row["section_id"])).fetchall()
+        ids = [r["id"] for r in rows]
+        i = ids.index(item_id)
+        j = i + step
+        if not 0 <= j < len(ids):
+            return False
+        ids[i], ids[j] = ids[j], ids[i]
+        for n, iid in enumerate(ids, 1):
+            c.execute("UPDATE items SET position = ? WHERE id = ?", (n, iid))
+        return True
 
 
 # ---------- projects ----------
@@ -403,7 +500,7 @@ def project(project_id: int, couple_id: int) -> sqlite3.Row | None:
 
 def update_project(project_id: int, couple_id: int, **fields) -> bool | None:
     """Rename or re-describe. None when the new name is taken by another project of the couple."""
-    allowed = {k: v for k, v in fields.items() if k in ("name", "about")}
+    allowed = {k: v for k, v in fields.items() if k in ("name", "about", "start_day", "end_day")}
     if not allowed:
         return False
     try:
@@ -419,7 +516,9 @@ def update_project(project_id: int, couple_id: int, **fields) -> bool | None:
 def delete_project(project_id: int, couple_id: int) -> bool:
     """The project goes; its steps stay as ordinary items, nothing the couple wrote is lost."""
     with closing(_connect()) as c:
-        c.execute("UPDATE items SET project_id = NULL WHERE project_id = ? AND couple_id = ?", (project_id, couple_id))
+        c.execute("UPDATE items SET project_id = NULL, section_id = NULL, position = NULL WHERE project_id = ? AND couple_id = ?",
+                  (project_id, couple_id))
+        c.execute("DELETE FROM project_sections WHERE project_id = ? AND couple_id = ?", (project_id, couple_id))
         return c.execute("DELETE FROM projects WHERE id = ? AND couple_id = ?", (project_id, couple_id)).rowcount == 1
 
 
@@ -427,28 +526,62 @@ def projects(couple_id: int) -> list[dict]:
     """The couple's projects with progress, ones with open steps first, then by creation."""
     with closing(_connect()) as c:
         rows = c.execute(
-            "SELECT p.id, p.name, p.about, p.created,"
+            "SELECT p.id, p.name, p.about, p.created, p.start_day, p.end_day,"
             " COUNT(i.id) AS total, COALESCE(SUM(i.status = 'done'), 0) AS done, COALESCE(SUM(i.status = 'open'), 0) AS open"
             " FROM projects p LEFT JOIN items i ON i.project_id = p.id AND i.couple_id = p.couple_id"
             " WHERE p.couple_id = ? GROUP BY p.id ORDER BY open = 0 AND total > 0, p.id",
             (couple_id,)).fetchall()
     return [{"id": r["id"], "name": r["name"], "about": r["about"], "total": r["total"], "done": r["done"],
-             "open": r["open"]} for r in rows]
+             "open": r["open"], "start": r["start_day"], "end": r["end_day"]} for r in rows]
 
 
 def project_items(project_id: int, couple_id: int) -> list[sqlite3.Row]:
-    """All steps of a project, open ones first (by date), then done ones, latest first."""
+    """All steps of a project, open ones first (in hand order, then by date), then done ones, latest first."""
     with closing(_connect()) as c:
         return c.execute(
             "SELECT * FROM items WHERE project_id = ? AND couple_id = ?"
-            " ORDER BY status = 'done', CASE WHEN status = 'done' THEN done_at END DESC, day IS NULL, day, time, id",
+            " ORDER BY status = 'done', CASE WHEN status = 'done' THEN done_at END DESC,"
+            " position IS NULL, position, day IS NULL, day, time, id",
             (project_id, couple_id)).fetchall()
 
 
 def set_item_project(item_id: int, couple_id: int, project_id: int | None) -> bool:
     with closing(_connect()) as c:
-        return c.execute("UPDATE items SET project_id = ? WHERE id = ? AND couple_id = ?",
-                         (project_id, item_id, couple_id)).rowcount == 1
+        return c.execute("UPDATE items SET project_id = ?, section_id = NULL, position = NULL"
+                         " WHERE id = ? AND couple_id = ?", (project_id, item_id, couple_id)).rowcount == 1
+
+
+def sections(project_id: int, couple_id: int) -> list[sqlite3.Row]:
+    with closing(_connect()) as c:
+        return c.execute("SELECT * FROM project_sections WHERE project_id = ? AND couple_id = ? ORDER BY position, id",
+                         (project_id, couple_id)).fetchall()
+
+
+def section(section_id: int, couple_id: int) -> sqlite3.Row | None:
+    with closing(_connect()) as c:
+        return c.execute("SELECT * FROM project_sections WHERE id = ? AND couple_id = ?", (section_id, couple_id)).fetchone()
+
+
+def add_section(project_id: int, couple_id: int, name: str) -> int:
+    with closing(_connect()) as c:
+        pos = c.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM project_sections WHERE project_id = ?",
+                        (project_id,)).fetchone()[0]
+        return c.execute("INSERT INTO project_sections (project_id, couple_id, name, position) VALUES (?, ?, ?, ?)",
+                         (project_id, couple_id, name[:60], pos)).lastrowid
+
+
+def rename_section(section_id: int, couple_id: int, name: str) -> bool:
+    with closing(_connect()) as c:
+        return c.execute("UPDATE project_sections SET name = ? WHERE id = ? AND couple_id = ?",
+                         (name[:60], section_id, couple_id)).rowcount == 1
+
+
+def delete_section(section_id: int, couple_id: int) -> bool:
+    """The stage goes; its tasks stay in the project, without a stage."""
+    with closing(_connect()) as c:
+        c.execute("UPDATE items SET section_id = NULL WHERE section_id = ? AND couple_id = ?", (section_id, couple_id))
+        return c.execute("DELETE FROM project_sections WHERE id = ? AND couple_id = ?",
+                         (section_id, couple_id)).rowcount == 1
 
 
 def last_item_id() -> int:
@@ -505,15 +638,25 @@ def events_on(couple_id: int, day: str | None = None, weekday: int | None = None
         r["day"] == day or (weekday is not None and dt.date.fromisoformat(r["day"]).weekday() == weekday))]
 
 
+def fire_at(row, morning_hour: int) -> dt.datetime | None:
+    """When an item's reminder goes: its time (or the morning of its day when it has no time) minus remind_before.
+    None when it has no reminder: no date, reminder off, or no time and no reminder asked for."""
+    rb = row["remind_before"]
+    if not row["day"] or rb == -1 or (rb is None and not row["time"]):
+        return None
+    hh, mm = (int(x) for x in row["time"].split(":")) if row["time"] else (morning_hour, 0)
+    return dt.datetime.combine(dt.date.fromisoformat(row["day"]), dt.time(hh, mm)) - dt.timedelta(minutes=rb or 0)
+
+
 def due_reminders(now: dt.datetime) -> list[sqlite3.Row]:
-    """Tasks and joint plans with an exact time that has come and not been reminded yet."""
-    stamp_day, stamp_time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M")
+    """Open tasks and joint plans whose reminder moment has come and that have not been reminded yet."""
+    horizon = (now.date() + dt.timedelta(days=60)).isoformat()  # the longest «заранее» is far shorter
     with closing(_connect()) as c:
-        return c.execute(
+        rows = c.execute(
             "SELECT * FROM items WHERE status = 'open' AND reminded = 0 AND kind IN ('task', 'event')"
-            " AND day IS NOT NULL AND time IS NOT NULL AND (day < ? OR (day = ? AND time <= ?))",
-            (stamp_day, stamp_day, stamp_time),
-        ).fetchall()
+            " AND day IS NOT NULL AND day <= ? AND COALESCE(remind_before, 0) != -1"
+            " AND (time IS NOT NULL OR remind_before IS NOT NULL)", (horizon,)).fetchall()
+    return [r for r in rows if fire_at(r, config.morning_hour) <= now]
 
 
 def mark_reminded(item_id: int) -> None:

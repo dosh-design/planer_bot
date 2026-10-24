@@ -53,6 +53,8 @@ def _item(row, today, names: dict | None = None) -> dict:
         "repeat": row["repeat"], "project_id": row["project_id"],
         "project": (names or {}).get(row["project_id"]) if row["project_id"] else None,
         "weekday": row["weekday"],
+        "note": row["note"], "remind": row["remind_before"], "section_id": row["section_id"],
+        "done_at": row["done_at"], "series": row["series_id"],
         "warnings": planner.warnings(row),
     }
 
@@ -75,6 +77,9 @@ async def state(request: web.Request) -> web.Response:
         "partner": {"id": p["id"], "name": p["name"]} if p else None,
         "invite": invite,
         "items": [_item(r, today, names) for r in db.items(u["couple_id"])],
+        # history: «Выполнено» in Дела and «Куплено недавно» in Покупки
+        "done": [_item(r, today, names) for r in db.done_items(u["couple_id"], "task", 60)]
+                + [_item(r, today, names) for r in db.done_items(u["couple_id"], "buy", 30)],
         "projects": projects,
         "score": game.current(u["couple_id"], today),  # the couple's shared weekly match, same as the bot's /season
     })
@@ -147,6 +152,9 @@ async def undo(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+EDIT_KEYS = ("text", "day", "time", "end", "note", "remind", "repeat", "section")
+
+
 async def change(request: web.Request) -> web.Response:
     try:
         body = await request.json()
@@ -158,12 +166,19 @@ async def change(request: web.Request) -> web.Response:
         pid = body["project_id"]
         if pid is not None and not isinstance(pid, int) or not planner.move_to_project(request["uid"], _id(request), pid):
             return _err("Не получилось перенести в проект")
-        if not any(k in body for k in ("text", "day", "time", "end")):
+        if not any(k in body for k in EDIT_KEYS):
             return web.json_response({"item": _row_json(request)})
-    ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in ("text", "day", "time", "end") if k in body})
+    ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in EDIT_KEYS if k in body})
     if not ok:
         return _err(error, 404 if error == "Запись не найдена" else 400)
     return web.json_response({"item": _row_json(request)})
+
+
+async def move(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    if not planner.move(request["uid"], _id(request), body.get("dir")):
+        return _err("Дальше двигать некуда")
+    return web.json_response({"ok": True})
 
 
 def _row_json(request: web.Request) -> dict:
@@ -208,8 +223,8 @@ def _project_json(request: web.Request, pid: int) -> dict | None:
     if not pr:
         return None
     today = db.local_now().date()
-    return {**pr, "items": [_item(r, today, {pid: pr["name"]})
-                            for r in db.project_items(pid, cid)]}
+    return {**pr, "sections": [{"id": r["id"], "name": r["name"]} for r in db.sections(pid, cid)],
+            "items": [_item(r, today, {pid: pr["name"]}) for r in db.project_items(pid, cid)]}
 
 
 async def project_create(request: web.Request) -> web.Response:
@@ -229,7 +244,7 @@ async def project_change(request: web.Request) -> web.Response:
     body = await _body(request)
     if body is None:
         return _err("Пустой запрос")
-    ok, error = planner.edit_project(request["uid"], _id(request), {k: body[k] for k in ("name", "about") if k in body})
+    ok, error = planner.edit_project(request["uid"], _id(request), {k: body[k] for k in ("name", "about", "start", "end") if k in body})
     if not ok:
         return _err(error, 404 if error == "Проект не найден" else 400)
     return web.json_response({"project": _project_json(request, _id(request))})
@@ -243,12 +258,45 @@ async def project_remove(request: web.Request) -> web.Response:
 
 async def project_add(request: web.Request) -> web.Response:
     body = await _body(request) or {}
-    rows, notes, error = planner.add_to_project(request["uid"], _id(request), body.get("text", ""), body.get("who", "me"))
+    section = body.get("section")
+    if section is not None and (not isinstance(section, int) or isinstance(section, bool)):
+        return _err("Этап не найден")
+    rows, notes, error = planner.add_to_project(request["uid"], _id(request), body.get("text", ""), body.get("who", "me"),
+                                                section)
     if error:
         return _err(error, 404 if error == "Проект не найден" else 400)
     if request.app.get(BOT):
         await chat.send(request.app[BOT], notes)
     return web.json_response({"project": _project_json(request, _id(request))})
+
+
+async def section_add(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    sid, error = planner.add_section(request["uid"], _id(request), body.get("name", ""))
+    if not sid:
+        return _err(error, 404 if error == "Проект не найден" else 400)
+    return web.json_response({"project": _project_json(request, _id(request))})
+
+
+def _section_project(request: web.Request) -> int | None:
+    sec = db.section(_id(request), db.user(request["uid"])["couple_id"])
+    return sec["project_id"] if sec else None
+
+
+async def section_change(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    pid = _section_project(request)
+    ok, error = planner.rename_section(request["uid"], _id(request), body.get("name", ""))
+    if not ok:
+        return _err(error, 404 if error == "Этап не найден" else 400)
+    return web.json_response({"project": _project_json(request, pid)})
+
+
+async def section_remove(request: web.Request) -> web.Response:
+    pid = _section_project(request)
+    if not planner.delete_section(request["uid"], _id(request)):
+        return _err("Этап не найден", 404)
+    return web.json_response({"project": _project_json(request, pid)})
 
 
 async def page(_):
@@ -280,4 +328,8 @@ def build_app(bot=None) -> web.Application:
     app.router.add_patch("/api/projects/{id}", project_change)
     app.router.add_delete("/api/projects/{id}", project_remove)
     app.router.add_post("/api/projects/{id}/items", project_add)
+    app.router.add_post("/api/projects/{id}/sections", section_add)
+    app.router.add_patch("/api/sections/{id}", section_change)
+    app.router.add_delete("/api/sections/{id}", section_remove)
+    app.router.add_post("/api/items/{id}/move", move)
     return app

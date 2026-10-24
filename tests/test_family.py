@@ -100,10 +100,12 @@ def test_payment_moves_on_and_back(couple):
     row, = add(1, "21-го числа каждого месяца передать показания счётчика")
     assert planner.when_text(row, SAT) == "сб 21.11 · каждый месяц"
     ok, notes = planner.done(1, row["id"])
-    row = db.item(row["id"], couple)
-    assert ok and notes and row["status"] == "open" and row["day"] == "2026-12-21"
+    done = db.item(row["id"], couple)
+    nxt = db.series_open(couple, row["id"])
+    assert ok and notes and done["status"] == "done" and done["day"] == "2026-11-21"  # November stays in history
+    assert nxt["day"] == "2026-12-21" and nxt["id"] != row["id"]
     assert planner.undo_done(1, row["id"])
-    assert db.item(row["id"], couple)["day"] == "2026-11-21"
+    assert db.item(row["id"], couple)["status"] == "open" and db.item(nxt["id"], couple) is None
     assert not planner.undo_done(1, row["id"])  # nothing left to undo
 
 
@@ -115,10 +117,12 @@ def test_overdue_payment_burns(couple, clock):
     assert planner.when_text(row, clock["now"].date()) == "просрочено на 2 дня · каждый месяц"
 
 
-def test_edit_payment_date_moves_its_day_of_month(couple):
+def test_moving_one_payment_keeps_the_series(couple):
     row, = add(1, "Оплатить интернет каждый месяц 5-го")
-    assert planner.edit(1, row["id"], {"day": "2026-11-25"}) == (True, "")
-    assert db.item(row["id"], couple)["repeat"] == "month:25"
+    assert planner.edit(1, row["id"], {"day": "2026-11-07"}) == (True, "")  # this month paid later
+    assert db.item(row["id"], couple)["repeat"] == "month:5"
+    planner.done(1, row["id"])
+    assert db.series_open(couple, row["id"])["day"] == "2026-12-05"  # the series still goes by the 5th
 
 
 # ---------- yearly dates ----------
@@ -283,4 +287,4 @@ async def test_api_state_fields(client, couple):  # noqa: F811
     assert pay["repeat"] == "month:21" and pay["when"].endswith("каждый месяц")
     await client.post(f"/api/items/{pay['id']}/done", headers=h)
     state = await (await client.get("/api/state", headers=h)).json()
-    assert [i["day"] for i in state["items"] if i["id"] == pay["id"]] == ["2026-12-21"]
+    assert [i["day"] for i in state["items"] if i["text"] == pay["text"]] == ["2026-12-21"]  # the next instance

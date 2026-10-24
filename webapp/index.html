@@ -388,8 +388,20 @@ main{animation:in var(--base) var(--ease)}
 .edit input{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
   min-height:44px;padding:0 var(--s3);width:100%;min-width:0;color-scheme:light dark}
 .edit input:focus{outline:none;border-color:var(--brand)}
+.edit textarea,.edit select{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
+  min-height:44px;padding:var(--s2) var(--s3);width:100%;min-width:0;color-scheme:light dark}
+.edit textarea{min-height:72px;resize:vertical}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 var(--s2);margin:0 calc(-1 * var(--s1));scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filters button{flex:none;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font:700 13px/1 var(--font);min-height:36px;padding:0 var(--s3);border-radius:var(--r-full);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--brand-fill);border-color:transparent;color:#fff}
+.tag{display:inline-flex;align-items:center;gap:4px;font:600 12px/1.2 var(--font);color:var(--text-2);margin-top:2px}
+.tag .ic{width:13px;height:13px}
+.pdates{font:var(--t-caption);color:var(--text-2);margin-top:2px}
+.stage-add{margin-top:var(--s3)}
 .edit .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
 .edit .row label:first-child{grid-column:1/-1}
+.edit .row.two label:first-child{grid-column:auto}
 .edit .err{font:var(--t-caption);color:var(--danger-ink);min-height:0}
 .edit .err:empty{display:none}
 .edit .btn{width:100%}
@@ -489,7 +501,7 @@ const tg = window.Telegram && Telegram.WebApp;
 const initData = tg ? tg.initData : "";
 // Sample data only on an explicit ?demo link (design previews); a real launch always needs Telegram's signed initData.
 const DEMO = !initData && new URLSearchParams(location.search).has("demo");
-let S = null, P = null, openProject = null, openSeason = false, SEASON = null, tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
+let S = null, P = null, doFilter = "all", addSection = null, openProject = null, openSeason = false, SEASON = null, tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
 if (tg && initData) {
   tg.ready(); tg.expand();
   // Follow Telegram's own theme, not just the phone's: a dark Telegram on a light phone gets the dark app.
@@ -700,7 +712,14 @@ function cardHtml(it){
   const past = it.kind === "event" && it.day && it.day < todayIso();
   return `<div class="card k-${it.kind}${it.chore_done ? " done" : ""}${it.hot ? " hot" : ""}${isLate(it) ? " late" : ""}${past ? " past" : ""}" id="i${it.id}" data-more="${it.id}">
     <span class="tile">${icon(pic(it))}</span>
-    <div class="body"><div class="title">${esc(it.text)}</div>${dueHtml(it)}${whoHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
+    <div class="body"><div class="title">${esc(it.text)}</div>${dueHtml(it)}${whoHtml(it)}${tagHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
+}
+// A project task shown outside its project says which one; a note shows as a mark, its text is in the sheet.
+function tagHtml(it){
+  const out = [];
+  if (it.project && !(tab === "projects" && openProject)) out.push(`<span class="tag">${icon("i-folder")}${esc(it.project)}</span>`);
+  if (it.note) out.push(`<span class="tag">${icon("i-list")}заметка</span>`);
+  return out.length ? `<div>${out.join(" ")}</div>` : "";
 }
 function section(title, items, lead = "", cls = "", id = ""){
   if (!items.length) return "";
@@ -711,7 +730,7 @@ function section(title, items, lead = "", cls = "", id = ""){
 // [normal, narrow screen]: a hint, never pre-filled text
 const PLACEHOLDER = {home:["Добавить дело, покупку или план…", "Дело или покупка…"], tasks:["Добавить дело или покупку…", "Дело или покупка…"],
                      month:["План на день или «занят с 8 до 10»…", "План на день…"], buy:["Добавить покупку…", "Что купить…"],
-                     projects:["Проект: шаг, шаг…", "Проект: шаг, шаг…"], project:["Добавить шаг…", "Добавить шаг…"]};
+                     projects:["Проект: шаг, шаг…", "Проект: шаг, шаг…"], project:["Добавить задачу…", "Задача…"]};
 function render(){
   header();
   const p = S.partner;
@@ -725,9 +744,10 @@ function render(){
   else if (tab === "month") html = monthHtml();
   else if (tab === "projects") html = openProject ? projectPageHtml() : projectsHtml();
   else if (tab === "buy") {
-    const items = S.items.filter(i => i.kind === "buy");
-    html = items.length ? section("Купить", items)
-      : stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб»: список увидите оба, а купленное исчезнет у обоих.");
+    const items = S.items.filter(i => i.kind === "buy"), bought = (S.done || []).filter(i => i.kind === "buy");
+    html = (items.length ? section("Купить", items)
+      : stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб»: список увидите оба, а купленное исчезнет у обоих."))
+      + doneList("Куплено недавно", bought.slice(0, 15));
   } else html = tasksHtml();
   $("list").innerHTML = html;
 }
@@ -803,25 +823,45 @@ async function showSeason(){
 }
 
 // Дела: everything to do and plan, by whose it is; project steps live in their projects.
+const FILTERS = [["all", "Все"], ["today", "Сегодня"], ["late", "Просрочено"], ["planned", "Запланировано"], ["done", "Выполнено"]];
+function doneList(title, items){
+  if (!items.length) return "";
+  return `<div class="sec past"><h2>${esc(title)}</h2><span class="count">${items.length}</span></div>`
+    + items.map(i => `<div class="card done-row"><span class="tile">${icon("i-check")}</span><div class="body"><div class="title">${esc(i.text)}</div>${whoHtml(i)}${tagHtml(i)}</div>
+        <button class="undo" data-undo="${i.id}" aria-label="Вернуть: ${esc(i.text)}">Вернуть</button></div>`).join("");
+}
 function tasksHtml(){
-  const me = S.me, p = S.partner, t = todayIso();
+  const me = S.me, p = S.partner, t = todayIso(), wd = weekday(t);
   const items = S.items.filter(i => i.kind === "task" || i.kind === "event");
-  if (!items.length) return welcomeHtml(!p);
+  const chips = `<div class="filters" role="group" aria-label="Показать">${FILTERS.map(([k, n]) => `<button data-filter="${k}" aria-pressed="${doFilter === k}">${n}</button>`).join("")}</div>`;
+  if (!items.length && !(S.done || []).length) return welcomeHtml(!p);
+  const byDay = (a, b) => (a.day || "9") + (a.time || "") < (b.day || "9") + (b.time || "") ? -1 : 1;
+  if (doFilter === "done") {
+    const done = (S.done || []).filter(i => i.kind === "task");
+    return chips + (done.length ? doneList("Выполнено", done) : stateHtml("i-check", "Пока ничего не закрыто", "Сделанные дела появятся здесь, их можно вернуть, если отметили по ошибке."));
+  }
+  if (doFilter !== "all") {
+    const pick = {today: i => !i.hot && (i.day === t || (i.kind === "task" && i.weekday === wd && !i.chore_done)),
+                  late: i => i.kind === "task" && (i.hot || (i.day && i.day < t && i.weekday == null)),
+                  planned: i => i.day && i.day > t}[doFilter];
+    const list = items.filter(pick).sort(byDay);
+    const empty = {today: ["На сегодня дел нет", "Можно выдохнуть."], late: ["Просроченных нет", "Бытовой хаос в этот раз без очков."],
+                   planned: ["Впереди пусто", "Добавьте дело с датой: «оплатить садик до 30.10»."]}[doFilter];
+    return chips + (list.length ? list.map(cardHtml).join("") : stateHtml("i-check", empty[0], empty[1]));
+  }
   const byHeat = (a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0);
-  const todo = items.filter(i => i.kind === "task" && i.weekday == null && !i.project_id).sort(byHeat);
+  const todo = items.filter(i => i.kind === "task" && i.weekday == null).sort(byHeat);
   const chores = items.filter(i => i.kind === "task" && i.weekday != null).sort((a, b) => (a.chore_done ? 1 : 0) - (b.chore_done ? 1 : 0));
   const ev = items.filter(i => i.kind === "event" && i.repeat !== "year"), gone = ev.filter(i => i.day && i.day < t);
-  const plans = ev.filter(i => !gone.includes(i)).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
+  const plans = ev.filter(i => !gone.includes(i)).sort(byDay);
   const dates = items.filter(i => i.repeat === "year").sort((a, b) => a.day < b.day ? -1 : 1);
-  const steps = items.filter(i => i.project_id).length;
-  return section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
+  return chips + section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
        + (p ? section(`Дела: ${p.name}`, todo.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "")
        + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
        + section("Обязанности по дому", chores, `<span class="ava both">${icon("i-home")}</span>`, "", "sec-chores")
        + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
        + section("Важные даты", dates, `<span class="ava both">${icon("i-gift")}</span>`, "", "sec-dates")
-       + section("Прошедшие планы", gone, "", "past")
-       + (steps ? `<button class="tile-row" data-goto="projects">${icon("i-folder")}<span>Ещё ${steps} ${plural(steps, "шаг", "шага", "шагов")} в проектах</span>${icon("i-right", "ic go")}</button>` : "");
+       + section("Прошедшие планы", gone, "", "past");
 }
 
 // ---------- projects ----------
@@ -845,22 +885,64 @@ function projectsHtml(){
     <p style="margin-top:var(--s4)">${create}</p></div>`;
   return `<div class="proj-head">${create}</div>` + list.map(projectRow).join("");
 }
+const fmtDay = d => new Date(d + "T12:00").toLocaleDateString("ru-RU", {day: "numeric", month: "short"}).replace(".", "");
+function projectDates(pr){
+  if (!pr.start && !pr.end) return "";
+  return `<div class="pdates">${icon("i-cal")} ${pr.start ? fmtDay(pr.start) : "…"} — ${pr.end ? fmtDay(pr.end) : "…"}${pr.end && pr.end < todayIso() && pr.open ? " · срок прошёл" : ""}</div>`;
+}
 function projectPageHtml(){
   if (!P) return `<div class="skel"></div><div class="skel"></div>`;
   const open = P.items.filter(i => i.status === "open"), done = P.items.filter(i => i.status === "done");
   const people = [S.me, S.partner].filter(Boolean).map((u, k) => `<span class="ava" style="background:var(${k ? "--success" : "--brand-fill"})" title="${esc(u.name)}">${initial(u.name)}</span>`).join("");
-  return `<button class="back" data-back="1">${icon("i-left")}Все проекты</button>
+  const stage = (title, list, sid) => `<div class="sec" id="${sid ? "stage-" + sid : "sec-steps"}"><h2>${esc(title)}</h2><span class="count">${list.length}</span>
+      ${sid ? `<button class="addto" data-stage="${sid}" aria-label="Этап «${esc(title)}»: переименовать или удалить" style="margin-left:auto">${icon("p-tool")}</button>` : ""}
+      <button class="addto" data-addstage="${sid || 0}" aria-label="Добавить задачу${sid ? ` в этап «${esc(title)}»` : ""}"${sid ? ' style="margin-left:0"' : ""}>${icon("i-plus")}</button></div>`
+    + list.map(cardHtml).join("");
+  const loose = open.filter(i => !i.section_id || !P.sections.some(sc => sc.id === i.section_id));
+  let html = `<button class="back" data-back="1">${icon("i-left")}Все проекты</button>
     <div class="proj-page"><div class="ph"><h2>${esc(P.name)}</h2><button class="addto" data-editproject="1" aria-label="Изменить проект">${icon("p-tool")}</button></div>
-      ${P.about ? `<p>${esc(P.about)}</p>` : ""}
-      <div class="meta"><span class="people">${people}</span><span>${P.total ? `Сделано ${P.done} из ${P.total}` : "Добавьте первый шаг внизу"}</span></div>${progressBar(P)}</div>`
-    + section("Шаги", open, "", "", "sec-steps")
-    + (open.length ? "" : `<div class="calm">${icon("i-check")}<span>${P.total ? "Все шаги сделаны. Красота." : "Шагов пока нет. Напишите внизу, например «купить плитку до 10.11»."}</span></div>`)
-    + (done.length ? `<div class="sec past"><h2>Сделано</h2><span class="count">${done.length}</span></div>`
-       + done.map(i => `<div class="card done-row"><span class="tile">${icon("i-check")}</span><div class="body"><div class="title">${esc(i.text)}</div>${whoHtml(i)}</div>
-           <button class="undo" data-undo="${i.id}" aria-label="Вернуть: ${esc(i.text)}">Вернуть</button></div>`).join("") : "");
+      ${P.about ? `<p>${esc(P.about)}</p>` : ""}${projectDates(P)}
+      <div class="meta"><span class="people">${people}</span><span>${P.total ? `Сделано ${P.done} из ${P.total}` : "Задач пока нет"}</span></div>${progressBar(P)}</div>`;
+  if (!P.total && !P.sections.length)
+    return html + `<div class="state small"><h3>Пусто, но это ненадолго</h3><p>Разбейте проект на задачи: у каждой свой срок и свой человек.</p>
+      <button class="btn" data-addstage="0">${icon("i-plus")} Добавить первую задачу</button></div>
+      <button class="btn ghost stage-add" data-newstage="1">${icon("i-plus")} Этап</button>`;
+  if (loose.length || !P.sections.length) html += stage(P.sections.length ? "Без этапа" : "Задачи", loose, 0);
+  P.sections.forEach(sc => { html += stage(sc.name, open.filter(i => i.section_id === sc.id), sc.id); });
+  if (!open.length && P.total) html += `<div class="calm">${icon("i-check")}<span>Все задачи сделаны. Красота.</span></div>`;
+  html += `<button class="btn ghost stage-add" data-newstage="1">${icon("i-plus")} Этап</button>`;
+  return html + doneList("Сделано", done);
+}
+function stageSheet(sc){
+  const editing = !!sc;
+  $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon("i-folder")}</span><div><b>${editing ? "Этап" : "Новый этап"}</b><small>Например: «Демонтаж», «Билеты и жильё»</small></div></div>
+    <form class="edit" id="sform"><label>Название<input name="name" maxlength="60" required value="${esc(editing ? sc.name : "")}" autocomplete="off"></label>
+      <div class="err" id="sform-err" role="alert"></div><button class="btn" type="submit">${editing ? "Сохранить" : "Добавить"}</button></form>`
+    + (editing ? `<button class="opt danger" data-delstage="1">${icon("i-trash")}<span>Удалить этап</span></button>` : "")
+    + `<button class="opt cancel" data-close="1">Отмена</button>`;
+  $("sform").onsubmit = async e => {
+    e.preventDefault();
+    const btn = $("sform").querySelector(".btn"); if (btn.disabled) return;
+    btn.disabled = true; $("sform-err").textContent = "";
+    try { P = (await api(editing ? `/api/sections/${sc.id}` : `/api/projects/${P.id}/sections`, {method: editing ? "PATCH" : "POST",
+                    body: JSON.stringify({name: $("sform").name.value})})).project; }
+    catch(err){ $("sform-err").textContent = err.message; btn.disabled = false; return; }
+    closeSheet(); toast(editing ? "Этап переименован." : "Этап добавлен.", "good"); render();
+  };
+  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
+  $("sheet").onclick = async e => {
+    const b = e.target.closest("button");
+    if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (!b || !b.dataset.delstage) return;
+    if (!b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Удалить? Задачи останутся в проекте"; return; }
+    try { P = (await api(`/api/sections/${sc.id}`, {method:"DELETE"})).project; toast("Этап удалён, задачи остались в проекте.", "good"); }
+    catch(err){ return toast(err.message, "bad"); }
+    closeSheet(); render();
+  };
+  setTimeout(() => $("sform").name.focus(), 50);
 }
 async function showProject(id){
-  openProject = id; P = null; tab = "projects"; render();
+  openProject = id; P = null; addSection = null; tab = "projects"; render();
   try { P = (await api(`/api/projects/${id}`)).project; }
   catch(err){ openProject = null; toast(err.message, "bad"); }
   render(); $("tabs").scrollIntoView({block:"start"});
@@ -877,6 +959,7 @@ function projectSheet(pr, name = ""){
       <label>Название<input name="name" maxlength="60" required value="${esc(editing ? pr.name : name)}" autocomplete="off"></label>
       ${editing ? "" : `<div class="ideas left">${PROJECT_IDEAS.map(n => `<button type="button" data-pname="${esc(n)}">${esc(n)}</button>`).join("")}</div>`}
       <label>Коротко о проекте<input name="about" maxlength="300" value="${esc(editing ? pr.about : "")}" placeholder="Необязательно" autocomplete="off"></label>
+      <div class="row two"><label>Начало<input type="date" name="start" value="${esc(editing ? pr.start || "" : "")}"></label><label>Конец<input type="date" name="end" value="${esc(editing ? pr.end || "" : "")}"></label></div>
       <div class="err" id="pform-err" role="alert"></div>
       <button class="btn" type="submit">${editing ? "Сохранить" : "Создать"}</button></form>`
     + (editing ? `<button class="opt danger" data-delproject="1">${icon("i-trash")}<span>Удалить проект</span></button>` : "")
@@ -888,6 +971,8 @@ function projectSheet(pr, name = ""){
     try {
       const r = await api(editing ? `/api/projects/${pr.id}` : "/api/projects", {method: editing ? "PATCH" : "POST",
                           body: JSON.stringify({name: f.get("name"), about: f.get("about")})});
+      if (f.get("start") || f.get("end") || editing)
+        await api(`/api/projects/${r.project.id}`, {method:"PATCH", body: JSON.stringify({start: f.get("start") || null, end: f.get("end") || null})});
       closeSheet(); toast(editing ? "Сохранено." : "Проект создан. Добавьте первые шаги внизу.", "good");
       await load(); return editing ? (await reloadProject(), render()) : showProject(r.project.id);
     } catch(err){ $("pform-err").textContent = err.message; btn.disabled = false; }
@@ -1012,9 +1097,20 @@ document.body.addEventListener("click", async e => {
   }
   if (e.target.closest("[data-back]")) { openProject = null; P = null; openSeason = false; return render(); }
   if (e.target.closest("[data-editproject]")) return P && projectSheet(P);
+  const fl = e.target.closest("[data-filter]");
+  if (fl) { doFilter = fl.dataset.filter; return render(); }
+  if (e.target.closest("[data-newstage]")) return P && stageSheet(null);
+  const st = e.target.closest("[data-stage]");
+  if (st) return P && stageSheet(P.sections.find(sc => sc.id === +st.dataset.stage));
+  const as = e.target.closest("[data-addstage]");
+  if (as) {  // the next line typed below goes into this stage
+    addSection = +as.dataset.addstage || null;
+    const sc = P && P.sections.find(x => x.id === addSection), inp = $("input");
+    inp.placeholder = sc ? `Задача в этап «${sc.name}»…` : "Добавить задачу…"; inp.focus(); return;
+  }
   const un = e.target.closest("[data-undo]");
   if (un) {
-    try { await api(`/api/items/${un.dataset.undo}/undo`, {method:"POST"}); toast("Вернул в шаги.", "good"); }
+    try { await api(`/api/items/${un.dataset.undo}/undo`, {method:"POST"}); toast("Вернул в список.", "good"); }
     catch(err){ return toast("Не вернулось: " + err.message, "bad"); }
     await load(); return;
   }
@@ -1054,7 +1150,7 @@ document.body.addEventListener("click", async e => {
     const win = res.scored && res.toast;
     if (it && (it.weekday != null || it.repeat)) {  // a chore or a payment stays: ticked till its next turn, or moved on
       await load();
-      const next = S.items.find(i => i.id === id);
+      const next = S.items.find(i => i.id === id || (it.series || it.id) === i.series && i.id !== id && it.kind === "task");
       toast((win ? win + " " : "") + (it.repeat ? `Следующий раз: ${next ? next.when : ""}` : "Отмечено на эту неделю."), "good", 6000, {label: "Вернуть", run: async () => {
         try { await api(`/api/items/${id}/undo`, {method:"POST"}); toast("Вернул.", "good"); }
         catch(err){ toast("Не вернулось: " + err.message, "bad"); }
@@ -1063,8 +1159,8 @@ document.body.addEventListener("click", async e => {
       return;
     }
     // The card fades out; «Вернуть» cancels that if it comes first, so the list never drops a restored item.
-    // A project step also moves its «N из M», which comes from the server.
-    const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); it && it.project_id ? load() : render(); }, 260); }, 500);
+    // Then the list is fetched again: a project's «N из M» and the history («Выполнено», «Куплено недавно») come from the server.
+    const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); load(); }, 260); }, 500);
     let t2 = 0;
     toast(it && it.kind === "buy" ? "Куплено. Холодильник благодарит." : win || DONE_LINES[id % 3], "good", 6000, {label: "Вернуть", run: async () => {
       clearTimeout(t1); clearTimeout(t2);
@@ -1078,7 +1174,11 @@ document.body.addEventListener("click", async e => {
   if (m) openSheet(findItem(+m.dataset.more));
 });
 
-const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id));
+// «Напомнить»: minutes before the due moment; "" = at the time (the default), -1 = never. Days count from the morning.
+const REMINDS = [["", "В срок"], ["15", "За 15 минут"], ["60", "За час"], ["180", "За 3 часа"], ["1440", "За день"], ["2880", "За 2 дня"], ["10080", "За неделю"], ["-1", "Не напоминать"]];
+const REPEATS = [["", "Не повторять"], ["day", "Каждый день"], ["week", "Каждую неделю"], ["month", "Каждый месяц"]];
+const repeatKey = it => !it.repeat ? "" : it.repeat.startsWith("month:") ? "month" : it.repeat;
+const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id)) || (S.done || []).find(i => i.id === id);
 function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); }
 function openSheet(it){
   if (!it) return;
@@ -1091,14 +1191,20 @@ function openSheet(it){
   }
   if (it.kind === "task" && it.project_id) rows.push(`<button class="opt" data-toproj="none">${icon("i-folder")}<span>Убрать из проекта «${esc(it.project || "")}»</span></button>`);
   else if (it.kind === "task") (S.projects || []).slice(0, 5).forEach(pr => rows.push(`<button class="opt" data-toproj="${pr.id}">${icon("i-folder")}<span>В проект «${esc(pr.name)}»</span></button>`));
+  if (it.project_id && it.status === "open" && tab === "projects" && openProject) rows.push(
+    `<button class="opt" data-move="-1">${icon("i-left")}<span>Выше в списке</span></button><button class="opt" data-move="1">${icon("i-right")}<span>Ниже в списке</span></button>`);
   if (it.day && (it.warnings || []).length) rows.push(`<button class="opt" data-openday="${it.day}">${icon("i-cal")}<span>Открыть этот день в календаре</span></button>`);
-  rows.push(`<button class="opt" data-edit="1">${icon("p-tool")}<span>${it.kind === "buy" || it.weekday != null ? "Изменить название" : "Изменить название или срок"}</span></button>`);
+  rows.push(`<button class="opt" data-edit="1">${icon("p-tool")}<span>${it.kind === "buy" || it.weekday != null ? "Изменить название" : "Изменить: срок, заметка, напоминание, повтор"}</span></button>`);
   rows.push(`<button class="opt danger" data-del="1">${icon("i-trash")}<span>Удалить</span></button><button class="opt cancel" data-close="1">Отмена</button>`);
   const sub = [it.when, (it.warnings || []).length ? "есть накладка" : ""].filter(Boolean).join(" · ");
   const dated = it.kind !== "buy" && it.weekday == null;
   const form = `<form class="edit" id="edit" hidden>
       <label>Название<input name="text" maxlength="300" value="${esc(it.text)}" autocomplete="off"></label>
-      ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>С<input type="time" name="time" value="${esc(it.time || "")}"></label><label>До<input type="time" name="end" value="${esc(it.end || "")}"></label></div>` : ""}
+      ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>С<input type="time" name="time" value="${esc(it.time || "")}"></label><label>До<input type="time" name="end" value="${esc(it.end || "")}"></label></div>
+      <div class="row two"><label>Напомнить<select name="remind">${REMINDS.map(([v, n]) => `<option value="${v}"${String(it.remind ?? "") === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+        ${it.repeat === "year" ? "" : `<label>Повтор<select name="repeat">${REPEATS.map(([v, n]) => `<option value="${v}"${repeatKey(it) === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>`}</div>` : ""}
+      ${it.kind === "task" && it.project_id && P && P.sections.length ? `<label>Этап<select name="section"><option value="">Без этапа</option>${P.sections.map(sc => `<option value="${sc.id}"${it.section_id === sc.id ? " selected" : ""}>${esc(sc.name)}</option>`).join("")}</select></label>` : ""}
+      ${it.kind !== "buy" ? `<label>Заметка<textarea name="note" maxlength="2000" placeholder="Детали, ссылки, размеры…">${esc(it.note || "")}</textarea></label>` : ""}
       <div class="err" id="edit-err" role="alert"></div>
       <button class="btn" type="submit">Сохранить</button></form>`;
   $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon(pic(it))}</span><div><b>${esc(it.text)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div></div>`
@@ -1107,7 +1213,11 @@ function openSheet(it){
   $("edit").onsubmit = async e => {
     e.preventDefault();
     const f = new FormData($("edit")), body = {text: f.get("text")};
-    if (dated) { body.day = f.get("day") || null; body.time = f.get("time") || null; body.end = f.get("end") || null; }
+    if (dated) { body.day = f.get("day") || null; body.time = f.get("time") || null; body.end = f.get("end") || null;
+                 body.remind = f.get("remind") === "" ? null : +f.get("remind");
+                 if (f.has("repeat") && f.get("repeat") !== repeatKey(it)) body.repeat = f.get("repeat") || null; }
+    if (f.has("note")) body.note = f.get("note");
+    if (f.has("section")) body.section = f.get("section") ? +f.get("section") : null;
     const btn = $("edit").querySelector(".btn"); if (btn.disabled) return;
     btn.disabled = true; $("edit-err").textContent = "";
     try { await api(`/api/items/${it.id}`, {method:"PATCH", body:JSON.stringify(body)}); }
@@ -1127,6 +1237,7 @@ function openSheet(it){
     if (b.dataset.del && !b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Точно удалить? Нажмите ещё раз"; return; }
     try {
       if (b.dataset.del) { await api(`/api/items/${it.id}`, {method:"DELETE"}); toast("Удалено.", "good"); }
+      if (b.dataset.move) { await api(`/api/items/${it.id}/move`, {method:"POST", body:JSON.stringify({dir: +b.dataset.move})}); }
       if (b.dataset.toproj) { await api(`/api/items/${it.id}`, {method:"PATCH", body:JSON.stringify({project_id: b.dataset.toproj === "none" ? null : +b.dataset.toproj})}); toast(b.dataset.toproj === "none" ? "Убрано из проекта, задача осталась в «Делах»." : "Перенесено в проект.", "good"); }
       if (b.dataset.who) { await api(`/api/items/${it.id}/who`, {method:"POST", body:JSON.stringify({who:b.dataset.who})}); toast(b.dataset.who === "partner" ? "Передано. Без обид." : "Готово, переназначено.", "good"); }
     } catch(err){ toast("Не сохранилось: " + err.message, "bad"); }
@@ -1147,9 +1258,9 @@ $("form").onsubmit = async e => {
   sending = true; $("add").disabled = true; $("composer").classList.add("busy"); $("form").setAttribute("aria-busy", "true");
   try {
     if (tab === "projects" && openProject) {  // inside a project the line is its next step, whatever it says
-      const r = await api(`/api/projects/${openProject}/items`, {method:"POST", body:JSON.stringify({text, who:"me"})});
+      const r = await api(`/api/projects/${openProject}/items`, {method:"POST", body:JSON.stringify({text, who:"me", section: addSection})});
       $("input").value = ""; store.set("draft", "");
-      P = r.project; toast("Шаг добавлен. Назначить другого: нажмите на шаг.", "good");
+      P = r.project; toast("Задача добавлена. Срок, человек и напоминание: нажмите на неё.", "good");
       await load(); return;
     }
     const r = await api("/api/add", {method:"POST", body:JSON.stringify({text})});

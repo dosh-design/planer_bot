@@ -104,7 +104,10 @@ def when_text(row, today: dt.date | None = None) -> str:
 def _with_repeat(row, text: str) -> str:
     if not row["repeat"]:
         return text
-    return f"{text} · {'каждый год' if row['repeat'] == 'year' else 'каждый месяц'}"
+    return f"{text} · {REPEAT_NAMES.get(row['repeat'], 'каждый месяц')}"
+
+
+REPEAT_NAMES = {"day": "каждый день", "week": "каждую неделю", "year": "каждый год"}
 
 
 def line(row, today: dt.date | None = None) -> str:
@@ -258,8 +261,14 @@ def complete(uid: int, item_id: int) -> Done:
         return Done(True, [])
     today = db.local_now().date()
     instance = _instance(row, today)
-    if row["repeat"] and row["day"]:  # a monthly payment or a birthday: on to its next date
+    if row["repeat"] and row["day"] and row["kind"] != "task":  # a birthday: on to its next date
         ok = db.move_repeat(item_id, u["couple_id"], parser.next_repeat(row["day"], row["repeat"]), done=True)
+    elif row["repeat"] and row["day"]:  # a repeating task: this instance stays done in history, the next one appears
+        ok = db.set_done(item_id, u["couple_id"])
+        if ok:
+            plan = row["plan_day"] or row["day"]
+            nxt = parser.next_repeat(plan, row["repeat"])
+            db.next_instance(row, nxt, nxt)
     else:
         ok = db.set_chore_done(item_id, u["couple_id"]) if chore else db.set_done(item_id, u["couple_id"])
     if not ok:
@@ -289,7 +298,12 @@ def undo_done(uid: int, item_id: int) -> bool:
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
     if not row:
         return False
-    if row["repeat"] and row["day"]:  # back to the date it was ticked off from
+    if row["repeat"] and row["day"] and row["kind"] == "task" and row["status"] == "done":
+        instance = _instance(row, dt.date.fromisoformat(row["day"]))
+        if not db.set_done(item_id, u["couple_id"], done=False):
+            return False
+        db.drop_next_instance(row, parser.next_repeat(row["plan_day"] or row["day"], row["repeat"]))
+    elif row["repeat"] and row["day"]:  # back to the date it was ticked off from
         back = parser.prev_repeat(row["day"], row["repeat"])
         instance = back[:7] if row["repeat"].startswith("month:") else back
         if row["status"] != "open" or not row["done_at"] or not db.move_repeat(item_id, u["couple_id"], back, done=False):
@@ -321,6 +335,26 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         if not text:
             return False, "Название не может быть пустым"
         fields["text"] = text[:300]
+    if "note" in changes:
+        fields["note"] = str(changes["note"] or "").strip()[:2000]
+    if "remind" in changes:
+        rb = changes["remind"]
+        if rb is not None and (not isinstance(rb, int) or isinstance(rb, bool) or rb not in REMIND_CHOICES):
+            return False, "Не понял, когда напомнить"
+        fields["remind_before"] = rb
+    if "repeat" in changes:
+        rep = changes["repeat"] or None
+        if rep is not None and rep not in ("day", "week", "month", "year"):
+            return False, "Не понял, как повторять"
+        if row["kind"] not in ("task", "event") or row["weekday"] is not None:
+            return False, "Повтор здесь не настроить"
+        fields["repeat"] = rep
+    if "section" in changes:
+        sid = changes["section"] or None
+        if sid is not None and (not isinstance(sid, int) or isinstance(sid, bool) or not row["project_id"] or not (sec := db.section(sid, u["couple_id"]))
+                                or sec["project_id"] != row["project_id"]):
+            return False, "Этап не найден"
+        fields["section_id"] = sid
     for key, field, check in (("day", "day", _valid_day), ("time", "time", _valid_time), ("end", "end_time", _valid_time)):
         if key in changes:
             value = changes[key] or None
@@ -341,12 +375,25 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         return False, "Время без даты не сработает: укажите и дату"
     if not fields:
         return False, "Нечего менять"
-    if row["repeat"] and "day" in fields:  # a payment moved to the 25th repeats on the 25th
-        fields["repeat"] = (f"month:{int(fields['day'][8:])}" if row["repeat"].startswith("month:") else "year") \
-            if fields["day"] else None
+    if "repeat" in fields:  # «каждый месяц» repeats on the day of the task's date
+        day = fields.get("day", row["day"])
+        if fields["repeat"] and not day:
+            return False, "Для повтора нужна дата"
+        if fields["repeat"] == "month":
+            fields["repeat"] = f"month:{int(day[8:])}"
+        if fields["repeat"] != row["repeat"]:
+            fields["plan_day"] = day  # the series starts over from this instance
+    if row["repeat"] == "year" and "day" in fields:  # a birthday moved is that date every year
+        fields["repeat"] = "year" if fields["day"] else None
+    if row["repeat"] and row["kind"] == "task" and "day" in fields and not fields["day"]:
+        return False, "У повторяющегося дела должна быть дата"
     db.update_item(item_id, u["couple_id"], **fields)
     db.touch(uid)
     return True, ""
+
+
+# What «Напомнить» offers: at the due time, N minutes before, or N days before (from the morning of the day).
+REMIND_CHOICES = (-1, 0, 15, 60, 180, 1440, 2880, 10080)
 
 
 def _valid_day(value) -> bool:
@@ -401,6 +448,16 @@ def edit_project(uid: int, project_id: int, changes: dict) -> tuple[bool, str]:
             return False, "Название длиннее 60 знаков"
     if "about" in changes:
         fields["about"] = " ".join(str(changes["about"] or "").split())[:300]
+    for key, field in (("start", "start_day"), ("end", "end_day")):
+        if key in changes:
+            value = changes[key] or None
+            if value is not None and not _valid_day(value):
+                return False, "Не понял дату"
+            fields[field] = value
+    p = db.project(project_id, cid)
+    start, end = fields.get("start_day", p["start_day"]), fields.get("end_day", p["end_day"])
+    if start and end and end < start:
+        return False, "Конец проекта раньше начала"
     if not fields:
         return False, "Нечего менять"
     ok = db.update_project(project_id, cid, **fields)
@@ -419,7 +476,53 @@ def delete_project(uid: int, project_id: int) -> bool:
     return ok
 
 
-def add_to_project(uid: int, project_id: int, text: str, who: str = "me") -> tuple[list, list[Out], str]:
+def add_section(uid: int, project_id: int, name: str) -> tuple[int | None, str]:
+    cid = _couple(uid)
+    if not cid or not db.project(project_id, cid):
+        return None, "Проект не найден"
+    name = " ".join(str(name or "").split())
+    if not name:
+        return None, "Назовите этап"
+    if any(r["name"].casefold() == name.casefold() for r in db.sections(project_id, cid)):
+        return None, "Такой этап уже есть"
+    db.touch(uid)
+    return db.add_section(project_id, cid, name), ""
+
+
+def rename_section(uid: int, section_id: int, name: str) -> tuple[bool, str]:
+    cid = _couple(uid)
+    sec = db.section(section_id, cid) if cid else None
+    if not sec:
+        return False, "Этап не найден"
+    name = " ".join(str(name or "").split())
+    if not name:
+        return False, "Назовите этап"
+    if any(r["name"].casefold() == name.casefold() and r["id"] != section_id for r in db.sections(sec["project_id"], cid)):
+        return False, "Такой этап уже есть"
+    db.rename_section(section_id, cid, name)
+    db.touch(uid)
+    return True, ""
+
+
+def delete_section(uid: int, section_id: int) -> bool:
+    """The stage goes, its tasks stay in the project."""
+    cid = _couple(uid)
+    ok = bool(cid and db.delete_section(section_id, cid))
+    if ok:
+        db.touch(uid)
+    return ok
+
+
+def move(uid: int, item_id: int, step: int) -> bool:
+    cid = _couple(uid)
+    ok = bool(cid and step in (-1, 1) and db.move_item(item_id, cid, step))
+    if ok:
+        db.touch(uid)
+    return ok
+
+
+def add_to_project(uid: int, project_id: int, text: str, who: str = "me",
+                   section_id: int | None = None) -> tuple[list, list[Out], str]:
     """A step typed inside a project: always a task of that project («купить плитку» is a step here, not
     a shopping line). Dates and times are read by the same rules as in the chat; who comes from the form."""
     cid = _couple(uid)
@@ -433,9 +536,15 @@ def add_to_project(uid: int, project_id: int, text: str, who: str = "me") -> tup
         return [], [], "Это не похоже на шаг проекта. Напишите, что сделать."
     parsed = [it for it in parser.rules(text, today, in_project=True) if it.kind == "task"] or \
         [parser.Parsed("task", text[:1].upper() + text[1:])]
+    if section_id is not None and (not (sec := db.section(section_id, cid)) or sec["project_id"] != project_id):
+        return [], [], "Этап не найден"
     for it in parsed:
         it.who = who if who in ("me", "partner", "both") else "me"
     rows, notes = add_parsed(uid, parsed, project_id)
+    if section_id is not None:
+        for r in rows:
+            db.update_item(r["id"], cid, section_id=section_id)
+        rows = [db.item(r["id"], cid) for r in rows]
     return rows, notes, ""
 
 
@@ -492,7 +601,11 @@ def due(now: dt.datetime) -> list[Out]:
     for row in db.due_reminders(now):
         db.mark_reminded(row["id"])
         for uid in _targets(row):
-            out.append(Out(uid, _fmt(jokes.REMIND, row, uid, now.date(), row["id"]), item_buttons(row)[:1]))
+            if row["remind_before"] and row["remind_before"] > 0:  # asked for ahead of time: the line says when it is due
+                text = f"🔔 {esc(name(uid))}, заранее: {esc(row['text'])} — {esc(when_text(row, now.date()))}."
+            else:
+                text = _fmt(jokes.REMIND, row, uid, now.date(), row["id"])
+            out.append(Out(uid, text, item_buttons(row)[:1]))
     return out
 
 

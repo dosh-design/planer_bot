@@ -205,8 +205,10 @@ def next_month_day(after: dt.date, anchor: int, include: bool = True) -> dt.date
 
 
 def next_repeat(day: str, repeat: str) -> str:
-    """The next date of a repeating item after this one: a month on, or a year on."""
+    """The next date of a repeating item after this one: a day, a week, a month or a year on."""
     d = dt.date.fromisoformat(day)
+    if repeat in ("day", "week"):
+        return (d + dt.timedelta(days=1 if repeat == "day" else 7)).isoformat()
     if repeat.startswith("month:"):
         return next_month_day(d, int(repeat[6:]), include=False).isoformat()
     try:
@@ -218,6 +220,8 @@ def next_repeat(day: str, repeat: str) -> str:
 def prev_repeat(day: str, repeat: str) -> str:
     """The date before this one: undoing a payment ticked by mistake puts it back."""
     d = dt.date.fromisoformat(day)
+    if repeat in ("day", "week"):
+        return (d - dt.timedelta(days=1 if repeat == "day" else 7)).isoformat()
     if repeat.startswith("month:"):
         y, m = (d.year - 1, 12) if d.month == 1 else (d.year, d.month - 1)
         return month_day(y, m, int(repeat[6:])).isoformat()
