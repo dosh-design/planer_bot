@@ -6,151 +6,127 @@
 <title>Обещал — сделал</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FFF7EC; --paper:#FFFDF9; --ink:#43332B; --muted:#9C877A; --line:#F1E3D2;
-  --terra:#E2703F; --terra-soft:#FCE5D8; --honey:#F2B347; --honey-soft:#FDF0D6;
-  --sage:#76A56B; --sage-soft:#E5F0DF; --rose:#DD6F86; --rose-soft:#FBE3E8;
-  --lav:#8C7FD1; --lav-soft:#ECE8FA; --sky:#6FA3C8; --sky-soft:#E1EEF7;
-  --hero1:#FFD9B8; --hero2:#FFE9C4; --shadow:0 6px 18px rgba(140,90,50,.08), 0 1px 2px rgba(140,90,50,.06);
-  --window:#FFD66B; --hot:#E5383B; --hot-soft:#FFE3E0; --hot-glow:rgba(229,56,59,.18);
+  --bg:#F5F0E8; --paper:#FFFDF9; --ink:#2A2521; --muted:#8B8178; --line:#E6DDD1;
+  --accent:#9C4A2A; --accent-soft:#F1E3D8; --olive:#5F6B4E; --olive-soft:#E7EADF;
+  --plum:#6E4A5E; --plum-soft:#EFE5EA; --slate:#4F6475; --slate-soft:#E3E9EE;
+  --hot:#C0392B; --hot-soft:#FBEAE7; --hot-glow:rgba(192,57,43,.16);
+  --shadow:0 1px 2px rgba(60,40,20,.05), 0 8px 24px rgba(60,40,20,.05);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#1F1813; --paper:#2A211B; --ink:#F5E9DF; --muted:#AE9888; --line:#3A2E26;
-    --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
-    --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
-    --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-    --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
+    --bg:#181512; --paper:#221E1A; --ink:#EDE6DD; --muted:#9A8F84; --line:#352F29;
+    --accent:#D08A63; --accent-soft:#3A2A20; --olive:#A3B08C; --olive-soft:#2A2E22;
+    --plum:#C99BB3; --plum-soft:#35262E; --slate:#95ADC0; --slate-soft:#232C33;
+    --hot:#F0645A; --hot-soft:#3A1D1A; --hot-glow:rgba(240,100,90,.22); --shadow:none;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#1F1813; --paper:#2A211B; --ink:#F5E9DF; --muted:#AE9888; --line:#3A2E26;
-  --terra:#F08A5D; --terra-soft:#43291D; --honey:#F5C266; --honey-soft:#3F3220;
-  --sage:#93C487; --sage-soft:#26331F; --rose:#F08EA2; --rose-soft:#42232B;
-  --lav:#A99DEB; --lav-soft:#2D2843; --sky:#8FBEDF; --sky-soft:#1F2F3B;
-  --hero1:#4A2F22; --hero2:#3D3020; --shadow:0 6px 18px rgba(0,0,0,.25); --window:#F5C266; --hot:#FF5A5F; --hot-soft:#4A1F1F; --hot-glow:rgba(255,90,95,.25);
+  --bg:#181512; --paper:#221E1A; --ink:#EDE6DD; --muted:#9A8F84; --line:#352F29;
+  --accent:#D08A63; --accent-soft:#3A2A20; --olive:#A3B08C; --olive-soft:#2A2E22;
+  --plum:#C99BB3; --plum-soft:#35262E; --slate:#95ADC0; --slate-soft:#232C33;
+  --hot:#F0645A; --hot-soft:#3A1D1A; --hot-glow:rgba(240,100,90,.22); --shadow:none;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--ink);font:700 15px/1.4 Nunito,system-ui,sans-serif;padding:0 16px 130px;
-  background-image:radial-gradient(circle at 12% 30%, var(--honey-soft) 0 120px, transparent 121px),
-                   radial-gradient(circle at 95% 75%, var(--terra-soft) 0 140px, transparent 141px);
-  background-attachment:fixed}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 Inter,system-ui,sans-serif;padding:0 20px 130px}
 button{font-family:inherit}
+.serif{font-family:Lora,Georgia,serif}
 
-/* the hero: a little house with the couple inside */
-.hero{position:relative;margin:14px 0 6px;padding:18px 18px 16px;border-radius:28px;overflow:hidden;
-  background:linear-gradient(135deg,var(--hero1),var(--hero2));box-shadow:var(--shadow)}
-.hero svg.house{position:absolute;right:-6px;bottom:-4px;width:132px;height:118px;opacity:.95}
-.brand{font-family:Comfortaa,Nunito,sans-serif;font-size:15px;color:var(--terra);letter-spacing:.2px}
-.hello{font-size:24px;font-weight:900;line-height:1.15;margin:8px 0 12px;max-width:66%}
-.pair{display:flex;align-items:center;gap:8px}
-.ava{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:16px;color:#fff;border:3px solid var(--paper)}
-.ava.me{background:var(--terra)}
-.ava.you{background:var(--sage);margin-left:-14px}
-.ava.wait{background:var(--line);color:var(--muted);margin-left:-14px}
-.heart{color:var(--rose);font-size:18px;margin-left:-4px;animation:beat 2.4s infinite}
-@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.25)}24%{transform:scale(1)}}
-.names{font-size:14px;color:var(--ink);opacity:.8}
-.oldest{margin:12px 0 0;padding:10px 12px;border-radius:16px;background:var(--paper);font-size:13px;max-width:72%;position:relative;z-index:1}
-.oldest b{color:var(--terra)}
+header{padding:26px 0 6px}
+.date{font-size:12px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+.hello{font-family:Lora,Georgia,serif;font-weight:500;font-size:30px;line-height:1.15;margin:8px 0 14px;letter-spacing:-.3px}
+.pair{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.avas{display:flex}
+.ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;color:var(--paper);border:2px solid var(--bg)}
+.ava.me{background:var(--accent)}
+.ava.you{background:var(--olive);margin-left:-8px}
+.ava.wait{background:var(--line);color:var(--muted);margin-left:-8px}
+.oldest{margin:18px 0 0;padding:12px 14px;border-radius:12px;background:var(--paper);border:1px solid var(--line);font-size:14px}
+.oldest b{font-weight:600}
+.oldest.alarm{background:var(--hot-soft);border:1px solid var(--hot);border-left:4px solid var(--hot);color:var(--ink)}
+.oldest.alarm .lbl{color:var(--hot);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:12px;display:block;margin-bottom:2px}
 
-.invite{background:var(--paper);border:2px dashed var(--honey);border-radius:22px;padding:14px;margin:12px 0;display:flex;gap:12px;align-items:center}
-.invite p{margin:0;flex:1;font-size:13px}
-.btn{border:0;border-radius:16px;background:var(--terra);color:#fff;font-weight:800;font-size:14px;padding:11px 16px;cursor:pointer}
+.invite{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px 0;display:flex;gap:12px;align-items:center}
+.invite p{margin:0;flex:1;font-size:14px;color:var(--muted)}
+.btn{border:0;border-radius:10px;background:var(--ink);color:var(--paper);font-weight:600;font-size:14px;padding:10px 16px;cursor:pointer}
 
-.tabs{display:flex;gap:6px;background:var(--paper);padding:5px;border-radius:20px;margin:14px 0 6px;position:sticky;top:8px;z-index:2;box-shadow:var(--shadow)}
-.tabs button{flex:1;border:0;background:none;color:var(--muted);font-weight:800;font-size:13px;padding:10px 4px;border-radius:15px;cursor:pointer;white-space:nowrap}
-.tabs button.on{background:var(--honey-soft);color:var(--ink)}
-.tabs b{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--terra);color:#fff;font-size:11px;line-height:18px}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:18px 0 4px;position:sticky;top:0;z-index:2;background:var(--bg);padding-top:8px}
+.tabs button{border:0;background:none;color:var(--muted);font-weight:600;font-size:15px;padding:8px 0 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-color:var(--ink)}
+.tabs b{font-weight:600;color:var(--muted);margin-left:5px;font-size:13px}
+.tabs b.hot{color:#fff;background:var(--hot);border-radius:9px;padding:1px 7px}
 .tabs b:empty{display:none}
 
-h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--ink);margin:20px 4px 10px}
-h3 .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#fff}
-h3 small{font-weight:700;color:var(--muted);font-size:12px}
+h3{display:flex;align-items:baseline;gap:8px;font-family:Lora,Georgia,serif;font-weight:600;font-size:17px;margin:24px 2px 10px}
+h3 small{font-family:Inter,sans-serif;font-weight:500;color:var(--muted);font-size:13px}
+h3.hot{color:var(--hot)}
 
-.item{background:var(--paper);border-radius:22px;padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;
-  box-shadow:var(--shadow);transition:opacity .35s,transform .35s;cursor:pointer}
-.item.gone{opacity:0;transform:scale(.92) translateY(-6px)}
-.blob{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;font-size:22px;flex:none}
-.k-task .blob{background:var(--honey-soft)} .k-event .blob{background:var(--rose-soft)}
-.k-buy .blob{background:var(--sage-soft)}  .k-busy .blob{background:var(--lav-soft)}
+.item{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 14px 14px 16px;margin-bottom:8px;display:flex;gap:14px;align-items:center;
+  box-shadow:var(--shadow);transition:opacity .3s,transform .3s;cursor:pointer;position:relative;overflow:hidden}
+.item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kind)}
+.k-task{--kind:var(--accent)} .k-event{--kind:var(--plum)} .k-buy{--kind:var(--olive)} .k-busy{--kind:var(--slate)}
+.item.gone{opacity:0;transform:translateX(24px)}
 .body{flex:1;min-width:0}
-.text{font-weight:800;word-wrap:break-word;line-height:1.25}
-.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.chip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:10px;background:var(--line);color:var(--muted)}
-.chip.when{background:var(--sky-soft);color:var(--sky)}
-.chip.hang{background:var(--terra-soft);color:var(--terra)}
-.chip.both{background:var(--rose-soft);color:var(--rose)}
-.chip.busy{background:var(--lav-soft);color:var(--lav)}
-.warn{font-size:12px;color:var(--rose);margin-top:8px;padding:8px 10px;border-radius:12px;background:var(--rose-soft);font-weight:700}
-.item.hot{background:var(--hot-soft);border:2px solid var(--hot);animation:alarm 1.8s ease-in-out infinite}
-.item.hot .blob{background:var(--paper)}
-.item.hot .text{color:var(--hot)}
+.text{font-weight:500;font-size:16px;word-wrap:break-word;line-height:1.3}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:13px;color:var(--muted)}
+.meta span + span::before{content:"·";margin-right:6px}
+.meta .when{color:var(--slate)}
+.meta .hang{color:var(--accent)}
+.meta .late{color:var(--hot);font-weight:700}
+.warn{font-size:13px;color:var(--plum);margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--plum-soft)}
+.item.hot{background:var(--hot-soft);border-color:var(--hot);animation:alarm 2s ease-in-out infinite}
+.item.hot::before{width:5px;background:var(--hot)}
+.item.hot .text{color:var(--hot);font-weight:600}
 .item.hot .check{border-color:var(--hot)}
-@keyframes alarm{0%,100%{box-shadow:0 0 0 0 var(--hot-glow)}50%{box-shadow:0 0 0 7px var(--hot-glow)}}
-.chip.late{background:var(--hot);color:#fff}
-h3.hot{color:var(--hot);font-size:15px;letter-spacing:.5px}
-.oldest.alarm{background:var(--hot);color:#fff}
-.oldest.alarm b{color:#fff;text-decoration:underline}
-.tabs b.hot{background:var(--hot);animation:alarm 1.8s infinite}
-.check{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line);flex:none;cursor:pointer;display:grid;place-items:center;
-  color:transparent;background:none;padding:0;font-size:16px;transition:all .25s}
-.check:hover{border-color:var(--sage)}
-.item.done .check{background:var(--sage);border-color:var(--sage);color:#fff;transform:scale(1.1)}
+@keyframes alarm{0%,100%{box-shadow:0 0 0 0 var(--hot-glow)}50%{box-shadow:0 0 0 6px var(--hot-glow)}}
+.check{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--muted);flex:none;cursor:pointer;display:grid;place-items:center;
+  color:transparent;background:none;padding:0;font-size:14px;transition:all .2s}
+.check:hover{border-color:var(--olive)}
+.item.done .check{background:var(--olive);border-color:var(--olive);color:var(--paper)}
 
-.empty{text-align:center;color:var(--muted);padding:36px 24px;background:var(--paper);border-radius:26px;margin-top:16px;box-shadow:var(--shadow)}
-.empty .big{font-size:46px;margin-bottom:8px}
+.empty{text-align:center;color:var(--muted);padding:44px 24px}
+.empty .t{font-family:Lora,Georgia,serif;font-size:19px;color:var(--ink);margin-bottom:6px}
 
-.composer{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 35%)}
-.composer form{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:24px;padding:7px 7px 7px 16px;box-shadow:0 8px 26px rgba(140,90,50,.16);border:2px solid var(--line)}
-.composer input{flex:1;border:0;background:none;color:var(--ink);font:700 15px Nunito,sans-serif;outline:none;min-width:0}
+.composer{position:fixed;left:0;right:0;bottom:0;padding:12px 20px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 35%)}
+.composer form{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:14px;padding:6px 6px 6px 16px;border:1px solid var(--line);box-shadow:0 6px 24px rgba(60,40,20,.08)}
+.composer input{flex:1;border:0;background:none;color:var(--ink);font:400 15px Inter,sans-serif;outline:none;min-width:0}
 .composer input::placeholder{color:var(--muted)}
-.composer .btn{width:44px;height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1;background:var(--honey);color:#5A3B12}
-.composer .hint{font-size:11px;color:var(--muted);text-align:center;margin-top:7px}
+.composer .btn{width:40px;height:40px;padding:0;font-size:22px;line-height:1;font-weight:400}
+.composer .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:7px}
 
-.sheet{position:fixed;inset:0;background:rgba(40,25,15,.4);display:none;align-items:flex-end;z-index:5}
+.sheet{position:fixed;inset:0;background:rgba(20,15,10,.4);display:none;align-items:flex-end;z-index:5}
 .sheet.on{display:flex}
-.sheet > div{background:var(--paper);width:100%;border-radius:28px 28px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom))}
-.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
-.sheet .title{font-weight:900;font-size:17px;margin:0 0 8px}
-.sheet button{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:none;color:var(--ink);font-weight:800;font-size:16px;padding:13px 6px;border-bottom:1px solid var(--line);cursor:pointer}
-.sheet button:last-child{border:0;color:var(--muted);justify-content:center}
-.sheet button.red{color:var(--rose)}
+.sheet > div{background:var(--paper);width:100%;border-radius:18px 18px 0 0;padding:10px 20px calc(18px + env(safe-area-inset-bottom))}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+.sheet .title{font-family:Lora,Georgia,serif;font-weight:600;font-size:19px;margin:0 0 6px}
+.sheet button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);font-weight:500;font-size:16px;padding:14px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.sheet button:last-child{border:0;color:var(--muted);text-align:center}
+.sheet button.red{color:var(--hot)}
 
-.toast{position:fixed;left:16px;right:16px;top:14px;background:var(--ink);color:var(--bg);border-radius:20px;padding:13px 16px;font-size:14px;z-index:9;
-  transform:translateY(calc(-100% - 40px));transition:transform .35s cubic-bezier(.2,1.4,.4,1)}
+.toast{position:fixed;left:20px;right:20px;top:14px;background:var(--ink);color:var(--paper);border-radius:12px;padding:13px 16px;font-size:14px;z-index:9;
+  transform:translateY(calc(-100% - 40px));transition:transform .3s ease}
 .toast.on{transform:none}
 </style>
 </head>
 <body>
-<section class="hero" id="hero">
-  <svg class="house" viewBox="0 0 132 118" aria-hidden="true">
-    <path d="M14 58 L66 16 L118 58" fill="none" stroke="var(--terra)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="94" y="22" width="12" height="22" rx="3" fill="var(--terra)"/>
-    <path d="M26 54 L66 22 L106 54 L106 118 L26 118 Z" fill="var(--paper)"/>
-    <rect x="40" y="66" width="22" height="20" rx="5" fill="var(--window)"/>
-    <path d="M51 66 V86 M40 76 H62" stroke="var(--paper)" stroke-width="2.5"/>
-    <rect x="72" y="78" width="20" height="40" rx="9" fill="var(--terra)" opacity=".85"/>
-    <circle cx="87" cy="99" r="2" fill="var(--paper)"/>
-    <path d="M66 42 c-3-5-11-3-9 3 c1 3 9 8 9 8 s8-5 9-8 c2-6-6-8-9-3z" fill="var(--rose)"/>
-  </svg>
-  <div class="brand">обещал — сделал</div>
+<header>
+  <div class="date" id="date"></div>
   <div class="hello" id="hello">Загружаю…</div>
   <div class="pair" id="pair"></div>
   <div id="oldest"></div>
-</section>
+</header>
 <div id="invite"></div>
 <nav class="tabs" id="tabs">
-  <button data-tab="tasks" class="on">🏡 Дела<b id="n-tasks"></b></button>
-  <button data-tab="buy">🧺 Покупки<b id="n-buy"></b></button>
-  <button data-tab="busy">⚽ Заняты</button>
+  <button data-tab="tasks" class="on">Дела<b id="n-tasks"></b></button>
+  <button data-tab="buy">Покупки<b id="n-buy"></b></button>
+  <button data-tab="busy">Кто занят</button>
 </nav>
 <main id="list"></main>
 <div class="composer">
   <form id="form"><input id="input" placeholder="Вкрути лампочку до субботы…" autocomplete="off" maxlength="500"><button class="btn" aria-label="Добавить">+</button></form>
-  <div class="hint">Голосом ещё проще: наговори в чат с ботом 🎙</div>
+  <div class="hint">Голосом удобнее: наговорите в чат с ботом</div>
 </div>
 <div class="sheet" id="sheet"><div><div class="grab"></div><div id="sheet-body"></div></div></div>
 <div class="toast" id="toast"></div>
@@ -163,19 +139,6 @@ if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("bg_color"); } catch(
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-// A homely picture for each line: by words in the text, else by kind.
-const PICS = [
-  [/корм/,"🐾"],[/лампоч|свет|люстр/,"💡"],[/кот|кош/,"🐈"],[/собак|пес|выгул/,"🐕"],[/полк|повес|дрел|сверл|шуруп/,"🪚"],
-  [/кран|сантех|труб|смесит/,"🚰"],[/мусор/,"🗑"],[/посуд/,"🍽"],[/стир|белье/,"🧺"],[/убор|пылесос|пол\b|окн/,"🧽"],
-  [/мам|родител|дач/,"🏡"],[/кино|фильм/,"🍿"],[/ресторан|ужин|кафе/,"🍷"],[/день рожд|годовщин|подар/,"🎁"],
-  [/врач|ветеринар|больниц|анализ/,"🩺"],[/машин|шин|авто|сто\b/,"🚗"],[/оплат|счет|квартплат|интернет/,"💳"],
-  [/футбол/,"⚽"],[/хоккей/,"🏒"],[/бан[яеию]|сауна/,"🧖"],[/рыбал/,"🎣"],[/маникюр|ногт/,"💅"],[/йог|пилатес|зал|трениров/,"🧘"],
-  [/молок|кефир|сыр|йогурт/,"🥛"],[/хлеб|батон/,"🍞"],[/батарейк/,"🔋"],[/яйц/,"🥚"],[/фрукт|яблок|банан/,"🍎"],
-  [/овощ|картош|морков|помидор/,"🥕"],[/мяс|куриц|фарш/,"🍗"],[/кофе|чай/,"☕"],[/пиво|вино/,"🍷"],[/порош|мыл|шампун|бумаг/,"🧴"],
-];
-const KIND_PIC = {task:"🔧", event:"💞", buy:"🛍", busy:"🗓"};
-const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KIND_PIC[it.kind]])[1];
 
 function demoState(){
   return {brand:"Обещал — сделал", me:{id:1,name:"Маша"}, partner:{id:2,name:"Дима"}, invite:"", items:[
@@ -230,36 +193,37 @@ function itemHtml(it){
   const chips = [];
   if (it.kind !== "buy") {
     const who = it.assignee == null ? "вместе" : it.assignee === S.me.id ? "ты" : it.assignee_name;
-    chips.push(`<span class="chip ${it.kind === "busy" ? "busy" : it.assignee == null ? "both" : ""}">${esc(who)}</span>`);
+    chips.push(`<span>${esc(who)}</span>`);
   }
-  if (it.when) chips.push(`<span class="chip ${it.hot ? "late" : it.when.startsWith("висит") ? "hang" : "when"}">${it.hot ? "🔥 " : ""}${esc(it.when)}</span>`);
+  if (it.when) chips.push(`<span class="${it.hot ? "late" : it.when.startsWith("висит") ? "hang" : "when"}">${esc(it.when)}</span>`);
   const warn = (it.warnings || []).map(w => `<div class="warn">${esc(w)}</div>`).join("");
-  const check = it.kind === "busy" ? "" : `<button class="check" data-done="${it.id}" aria-label="Сделано">♥</button>`;
-  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}"><div class="blob">${pic(it)}</div>
+  const check = it.kind === "busy" ? "" : `<button class="check" data-done="${it.id}" aria-label="Сделано">✓</button>`;
+  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}">
     <div class="body"><div class="text">${esc(it.text)}</div>${chips.length ? `<div class="meta">${chips.join("")}</div>` : ""}${warn}</div>${check}</div>`;
 }
 
 function group(title, items, dot, cls){
   if (!items.length) return "";
-  return `<h3 class="${cls || ""}">${dot || ""}${esc(title)} <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
+  return `<h3 class="${cls || ""}">${esc(title)} <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
 }
-const dot = (name, color) => `<span class="dot" style="background:var(${color})">${initial(name)}</span>`;
+const dot = () => "";
 
 function render(){
   const me = S.me, p = S.partner;
+  $("date").textContent = new Date().toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"});
   $("hello").textContent = `${greeting()}, ${me.name}`;
-  $("pair").innerHTML = `<span class="ava me">${initial(me.name)}</span>` +
-    (p ? `<span class="ava you">${initial(p.name)}</span><span class="heart">♥</span><span class="names">${esc(me.name)} и ${esc(p.name)}</span>`
-       : `<span class="ava wait">?</span><span class="names">ждём вторую половину</span>`);
+  $("pair").innerHTML = `<span class="avas"><span class="ava me">${initial(me.name)}</span>` +
+    (p ? `<span class="ava you">${initial(p.name)}</span></span><span>${esc(me.name)} и ${esc(p.name)}</span>`
+       : `<span class="ava wait">?</span></span><span>ждём вторую половину</span>`);
   const hot = S.items.filter(i => i.hot);
   const hanging = S.items.filter(i => i.kind === "task" && /^висит/.test(i.when || ""))
                          .sort((a, b) => parseInt(b.when.slice(6)) - parseInt(a.when.slice(6)))[0];
   $("oldest").innerHTML = hot.length
-    ? `<div class="oldest alarm">🔥 Горит: <b>${hot.length}</b> ${hot.length === 1 ? "дело" : hot.length < 5 ? "дела" : "дел"}. Хуже всех: <b>${esc(hot[0].text.toLowerCase())}</b>, ${esc(hot[0].when)}</div>`
-    : hanging ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
-  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p>Позови свою половину, иначе напоминать будет некому. Бот уже точит сарказм 😏</p><button class="btn" id="share">Позвать</button></div>` : "";
+    ? `<div class="oldest alarm"><span class="lbl">Просрочено: ${hot.length}</span>Дольше всех: <b>${esc(hot[0].text.toLowerCase())}</b>, ${esc(hot[0].when)}</div>`
+    : hanging ? `<div class="oldest">Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
+  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p>Пригласите вторую половину, иначе напоминать будет некому.</p><button class="btn" id="share">Позвать</button></div>` : "";
   if ($("share")) $("share").onclick = () => {
-    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер 🏡");
+    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер");
     tg ? tg.openTelegramLink(url) : window.open(url);
   };
   const by = k => S.items.filter(i => k === "tasks" ? (i.kind === "task" || i.kind === "event") : i.kind === k);
@@ -270,20 +234,20 @@ function render(){
   const items = by(tab);
   let html;
   if (!items.length) {
-    const e = {tasks:["🕯","Дел нет. Подозрительно уютно.<br>Напишите, что обещали друг другу."],
-               buy:["🧺","Корзинка пуста.<br>Холодильник, видимо, тоже скоро будет."],
-               busy:["🛋","Все дома, никто не занят.<br>Например: «по четвергам у меня футбол»."]}[tab];
-    html = `<div class="empty"><div class="big">${e[0]}</div>${e[1]}</div>`;
+    const e = {tasks:["Дел нет","Подозрительно спокойно. Напишите, что обещали друг другу."],
+               buy:["Список пуст","Холодильник, видимо, тоже скоро будет."],
+               busy:["Все свободны","Например: «по четвергам у меня футбол»."]}[tab];
+    html = `<div class="empty"><div class="t">${e[0]}</div>${e[1]}</div>`;
   } else if (tab === "tasks") {
     const cold = items.filter(i => !i.hot);
-    html = group("ГОРИТ", items.filter(i => i.hot), "🔥", "hot")
-         + group("Твои дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
+    html = group("Просрочено", items.filter(i => i.hot), "", "hot")
+         + group("Ваши дела", cold.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
          + (p ? group(`Дела: ${p.name}`, cold.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "")
-         + group("Вместе", cold.filter(i => i.assignee == null), `<span class="dot" style="background:var(--rose)">♥</span>`);
+         + group("Вместе", cold.filter(i => i.assignee == null));
   } else if (tab === "busy") {
     html = group(me.name, items.filter(i => i.assignee === me.id), dot(me.name, "--terra"))
          + (p ? group(p.name, items.filter(i => i.assignee === p.id), dot(p.name, "--sage")) : "");
-  } else html = `<h3>🧺 Купить <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
+  } else html = `<h3>Купить <small>${items.length}</small></h3>` + items.map(itemHtml).join("");
   $("list").innerHTML = html;
 }
 
@@ -296,7 +260,7 @@ $("list").onclick = async e => {
     el.classList.add("done"); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success");
     try { await api(`/api/items/${id}/done`, {method:"POST"}); } catch(err){ toast(err.message); el.classList.remove("done"); return; }
     setTimeout(() => { el.classList.add("gone"); setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); }, 350); }, 450);
-    toast(["Готово! Вторая половина уже в курсе 😏","Свершилось. Бот удивлён.","Записано в семейную летопись подвигов."][id % 3]);
+    toast(["Готово. Вторая половина уже в курсе.","Свершилось. Бот удивлён.","Записано в летопись подвигов."][id % 3]);
     return;
   }
   const m = e.target.closest("[data-more]");
@@ -306,12 +270,12 @@ $("list").onclick = async e => {
 function openSheet(it){
   const rows = [];
   if (it.kind === "task" || it.kind === "event") {
-    rows.push(`<button data-who="me">🙋 Это на мне</button>`);
-    if (S.partner) rows.push(`<button data-who="partner">🤝 Передать: ${esc(S.partner.name)}</button>`);
-    rows.push(`<button data-who="both">💞 Делаем вместе</button>`);
+    rows.push(`<button data-who="me">Это на мне</button>`);
+    if (S.partner) rows.push(`<button data-who="partner">Передать: ${esc(S.partner.name)}</button>`);
+    rows.push(`<button data-who="both">Делаем вместе</button>`);
   }
-  rows.push(`<button class="red" data-del="1">🗑 Удалить</button><button data-close="1">Отмена</button>`);
-  $("sheet-body").innerHTML = `<div class="title">${pic(it)} ${esc(it.text)}</div>` + rows.join("");
+  rows.push(`<button class="red" data-del="1">Удалить</button><button data-close="1">Отмена</button>`);
+  $("sheet-body").innerHTML = `<div class="title">${esc(it.text)}</div>` + rows.join("");
   $("sheet").classList.add("on");
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
