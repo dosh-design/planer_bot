@@ -254,8 +254,9 @@ function render(){
   const hot = S.items.filter(i => i.hot);
   const hanging = S.items.filter(i => i.kind === "task" && /^висит/.test(i.when || ""))
                          .sort((a, b) => parseInt(b.when.slice(6)) - parseInt(a.when.slice(6)))[0];
-  // The house stays calm: overdue is shown once, as the «ГОРИТ» block in the list.
-  $("oldest").innerHTML = hanging && !hanging.hot ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
+  $("oldest").innerHTML = hot.length
+    ? `<div class="oldest alarm">🔥 Горит: <b>${hot.length}</b> ${hot.length === 1 ? "дело" : hot.length < 5 ? "дела" : "дел"}. Хуже всех: <b>${esc(hot[0].text.toLowerCase())}</b>, ${esc(hot[0].when)}</div>`
+    : hanging ? `<div class="oldest">🐌 Дольше всех ждёт: <b>${esc(hanging.text.toLowerCase())}</b>, ${esc(hanging.when)}</div>` : "";
   $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p>Позови свою половину, иначе напоминать будет некому. Бот уже точит сарказм 😏</p><button class="btn" id="share">Позвать</button></div>` : "";
   if ($("share")) $("share").onclick = () => {
     const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер 🏡");
