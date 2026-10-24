@@ -129,3 +129,26 @@ async def test_send_retries_once_on_telegram_hiccup(monkeypatch):
     b = Flaky([TelegramNetworkError(method=None, message="x"), TelegramNetworkError(method=None, message="x")])
     await chat.send(b, [chat.Out(1, "a"), chat.Out(2, "b")])
     assert b.sent == [2] and b.calls == 3  # gave up on the first after two tries, did not get stuck
+
+
+async def test_solo_hint_comes_once_not_after_every_phrase():
+    b = FakeBot()
+    for text in ("купить молоко", "позвонить маме", "вынести мусор"):
+        await bot.text(message(7, "Аня", text), b)
+    hints = [t for _, t in b.sent if "Позвать пару" in t]
+    assert len(hints) == 1 and "только твой" in hints[0]
+
+
+async def test_same_purchase_is_reported_as_already_listed(couple):
+    b = FakeBot()
+    await bot.text(message(1, "Маша", "купить молоко"), b)
+    m = message(2, "Дима", "Купить молоко")
+    await bot.text(m, b)
+    assert m.answers[0][0].startswith("Уже в списке: 🛒 Молоко")
+    assert not [t for chat, t in b.sent if chat == 1 and "Молоко" in t[20:]]  # Маша isn't told about it again
+
+
+async def test_greeting_has_the_new_name_and_motto():
+    m = message(8, "Оля", "/start")
+    await bot.start(m, SimpleNamespace(args=None), FakeBot())
+    assert "«Договорились»" in m.answers[0][0] and "Меньше бытового хаоса. Больше времени вместе." in m.answers[0][0]

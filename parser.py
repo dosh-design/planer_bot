@@ -39,7 +39,9 @@ class Parsed:
     date: str | None = None   # YYYY-MM-DD
     time: str | None = None   # HH:MM
     end: str | None = None    # HH:MM, when the phrase gives a span: «с 8 до 10»
-    weekly: int | None = None  # 0..6 for repeating busy days
+    weekly: int | None = None  # 0..6 for repeating busy days and house chores
+    repeat: str | None = None  # "month:21" — a payment on the 21st; "year" — a birthday on its date
+    project: str | None = None  # «Ремонт кухни» for the steps of one bigger thing
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -180,6 +182,78 @@ def find_time(t: str) -> str | None:
     return None
 
 
+YEARLY_WORDS = ("день рождения", "днюх", "др ", "годовщин", "именин", "юбиле", "каждый год", "ежегодн")
+_MONTHLY = re.compile(r"кажд\w+ месяц|ежемесячн|раз в месяц")
+_MONTHDAY = re.compile(r"\b(\d{1,2})(?:-?го|-?е)?(?: числа)?(?= (?:кажд\w+ месяц|ежемесячн|раз в месяц))"
+                       r"|(?:кажд\w+ месяц\w*|ежемесячно|раз в месяц),? (\d{1,2})(?:-?го|-?е)?\b(?![.:]\d)"
+                       r"|\b(\d{1,2})(?:-?го)? числа\b")
+
+
+def month_day(year: int, month: int, day: int) -> dt.date:
+    """The 31st in a 30-day month is its last day."""
+    last = (dt.date(year + month // 12, month % 12 + 1, 1) - dt.timedelta(days=1)).day
+    return dt.date(year, month, min(day, last))
+
+
+def next_month_day(after: dt.date, anchor: int, include: bool = True) -> dt.date:
+    """The first «anchor-th of the month» on or after (or strictly after) a date."""
+    d = month_day(after.year, after.month, anchor)
+    if d < after or (d == after and not include):
+        y, m = (after.year + 1, 1) if after.month == 12 else (after.year, after.month + 1)
+        d = month_day(y, m, anchor)
+    return d
+
+
+def next_repeat(day: str, repeat: str) -> str:
+    """The next date of a repeating item after this one: a month on, or a year on."""
+    d = dt.date.fromisoformat(day)
+    if repeat.startswith("month:"):
+        return next_month_day(d, int(repeat[6:]), include=False).isoformat()
+    try:
+        return d.replace(year=d.year + 1).isoformat()
+    except ValueError:  # 29 February
+        return dt.date(d.year + 1, 2, 28).isoformat()
+
+
+def prev_repeat(day: str, repeat: str) -> str:
+    """The date before this one: undoing a payment ticked by mistake puts it back."""
+    d = dt.date.fromisoformat(day)
+    if repeat.startswith("month:"):
+        y, m = (d.year - 1, 12) if d.month == 1 else (d.year, d.month - 1)
+        return month_day(y, m, int(repeat[6:])).isoformat()
+    try:
+        return d.replace(year=d.year - 1).isoformat()
+    except ValueError:
+        return dt.date(d.year - 1, 2, 28).isoformat()
+
+
+def find_repeat(t: str, today: dt.date, when: str | None) -> tuple[str | None, str | None]:
+    """(repeat, date): «21-го числа каждого месяца» → ("month:21", the next 21st);
+    «день рождения мамы 1 февраля» → ("year", the next 1 February). A birthday without a date is a plain plan."""
+    if _MONTHLY.search(t):
+        m = _MONTHDAY.search(t)
+        anchor = int(next(g for g in m.groups() if g)) if m else dt.date.fromisoformat(when or today.isoformat()).day
+        if 1 <= anchor <= 31:
+            return f"month:{anchor}", next_month_day(today, anchor).isoformat()
+    if when and any(w in t for w in YEARLY_WORDS):
+        return "year", when
+    return None, when
+
+
+# «Ремонт кухни: купить плитку, вызвать мастера» — the steps of one bigger thing.
+_PROJECT = re.compile(r"\s*([А-ЯЁа-яёA-Za-z][^:\d\n]{1,38}?)\s*:\s*(.+)", re.S)
+_NOT_PROJECT = ("купи", "надо купить", "нужно купить", "докупить", "напомни", "важно", "срочно", "кстати", "смотри", "слушай", "итак", "внимание", "ps", "upd")
+
+
+def split_project(text: str) -> tuple[str, list[str]] | None:
+    m = _PROJECT.match(text)
+    if not m or m.group(1).strip().lower() in _NOT_PROJECT or m.group(1).strip().lower().startswith(_NOT_PROJECT):
+        return None
+    steps = [s.strip(" .;") for s in re.split(r",|;|\n|\s+и\s+(?=[а-яё]+(?:ть|ти|чь)\b)", m.group(2)) if s.strip(" .;")]
+    name = m.group(1).strip()
+    return (name[:1].upper() + name[1:60], steps) if steps else None
+
+
 def find_weekly(t: str) -> int | None:
     if re.search(r"кажд\w+|по (понедельникам|вторникам|средам|четвергам|пятницам|субботам|воскресеньям)", t):
         return find_weekday(t.replace("по ", " "))
@@ -247,7 +321,9 @@ _JUNK = re.compile(
     r"утром|вечером|до выходных|на выходных|в выходные|до конца недели|на неделе|"
     r"через \d+ (?:дн\w+|день|недел\w+)|через (?:день|неделю|две недели)|"
     r"(?:в|во|до|к|по) (?:понедельник\w*|вторник\w*|сред\w+|четверг\w*|пятниц\w+|суббот\w+|воскресень\w+)|"
-    r"на (?:тебе|мне|нас)|кажд\w+ \w+|по (?:понедельникам|вторникам|средам|четвергам|пятницам|субботам|воскресеньям)|в (?:\d{1,2}(?:[:.]\d{2})?|" + _HW + r")(?: час\w*)?(?: (?:утра|дня|вечера|ночи))?|\d{1,2}[.:]\d{2}(?:\.\d{2,4})?)\b",
+    r"\d{1,2}(?:-?го|-?е)? числа|\d{1,2}-?го|кажд\w+ месяц\w*|ежемесячно|раз в месяц|каждый год|ежегодно|"
+    r"(?:(?:до|к) )?\d{1,2} (?:январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)\w*|"
+    r"на (?:тебе|мне|нас)|кажд\w+ \w+|по (?:понедельникам|вторникам|средам|четвергам|пятницам|субботам|воскресеньям)|в (?:\d{1,2}(?:[:.]\d{2})?|" + _HW + r")(?: час\w*)?(?: (?:утра|дня|вечера|ночи))?|(?:(?:до|к) )?\d{1,2}[.:]\d{2}(?:\.\d{2,4})?)\b",
     re.I,
 )
 
@@ -257,14 +333,29 @@ def _clean(text: str) -> str:
     out = re.sub(_DASH.pattern, lambda m: " " if (m.group(1) or m.group(4) or ":" in m.group(2) + m.group(3)) else m.group(0),
                  out, flags=re.I)
     out = _JUNK.sub(" ", out)
-    out = re.sub(r"\s+", " ", out).strip(" ,.!?-—")
+    out = re.sub(r"\s+", " ", out).strip(" ,.!?-—:")
     return out[:1].upper() + out[1:] if out else text.strip()
 
 
-def rules(text: str, today: dt.date) -> list[Parsed]:
+def _partner(t: str) -> bool:
+    """Said to the partner: «ты», «тебе», «обещал» as words, so «выбрать даты» isn't «ты»."""
+    return any(re.search(rf"(?<![а-яё]){re.escape(w)}", t) for w in PARTNER_WORDS)
+
+
+def rules(text: str, today: dt.date, in_project: bool = False) -> list[Parsed]:
     t = " " + text.lower().replace("ё", "е") + " "
-    m = re.match(r"\s*(?:купи(?:ть)?|надо купить|нужно купить|докупить)\b[:,]?\s*(.+)", text, re.I)
-    if m or t.strip().startswith("купить"):
+    proj = None if in_project else split_project(text)
+    if proj and not re.match(r"\s*(?:купи(?:ть)?|надо купить|нужно купить|докупить)\s*:", text, re.I):
+        name, steps = proj
+        out = []
+        for step in steps:
+            for it in rules(step, today, in_project=True):
+                if it.kind == "task":
+                    it.project = name
+                out.append(it)
+        return out
+    m = None if in_project else re.match(r"\s*(?:купи(?:ть)?|надо купить|нужно купить|докупить)\b[:,]?\s*(.+)", text, re.I)
+    if m or (t.strip().startswith("купить") and not in_project):
         body = m.group(1) if m else text
         when = find_date(t, today)
         parts = [_clean(p) for p in re.split(r",|\sи\s|;|\n", body) if _clean(p).strip(" .")]
@@ -272,11 +363,17 @@ def rules(text: str, today: dt.date) -> list[Parsed]:
     weekly = find_weekly(t)
     when = None if weekly is not None else find_date(t, today)
     at, end = find_span(t) or (find_time(t), None)
+    repeat, when = find_repeat(t, today, when) if weekly is None else (None, when)
+    if repeat == "year":
+        return [Parsed("event", _clean(text), "both", when, at, end, repeat=repeat)]
+    if repeat:  # monthly: a payment or a meter reading, the author's unless said otherwise
+        who = "partner" if _partner(t) else "me"
+        return [Parsed("task", _clean(text), who, when, at, end, repeat=repeat)]
     if any(w in t for w in BUSY_WORDS):
         return [Parsed("busy", _clean(text), "me", when, at, end, weekly)]
     if any(w in t for w in EVENT_WORDS):
         return [Parsed("event", _clean(text), "both", when, at, end)]
-    who = "partner" if any(w in t for w in PARTNER_WORDS) else "me"
+    who = "partner" if _partner(t) else "me"
     if re.match(r"\s*давай(?:те)?\b", t):  # «давай завтра купим продукты» — the two of you
         who = "both"
     return [Parsed("task", _clean(text), who, when, at, end, weekly)]
@@ -286,7 +383,7 @@ def rules(text: str, today: dt.date) -> list[Parsed]:
 
 PROMPT = """Ты разбираешь фразы для семейного планера пары. Сегодня {today} ({weekday}).
 Фразу написал(а) {author}, партнёр — {partner}.{forwarded}
-Верни только JSON: {{"items": [{{"kind": "...", "text": "...", "who": "...", "date": null, "time": null, "end": null, "weekly": null}}]}}
+Верни только JSON: {{"items": [{{"kind": "...", "text": "...", "who": "...", "date": null, "time": null, "end": null, "weekly": null, "repeat": null, "project": null}}]}}
 kind: "task" — дело или обещание (вкрутить лампочку, позвонить маме); "buy" — покупка, по одной позиции на item;
 "busy" — личные планы одного из партнёров, когда он занят (футбол, баня, маникюр, работа допоздна);
 "event" — совместные планы пары (в гости к маме, кино, годовщина).
@@ -295,6 +392,10 @@ who: "me" — делает автор, "partner" — делает партнёр
 date: "YYYY-MM-DD" или null. «В субботу» — ближайшая будущая суббота. time: "HH:MM" или null.
 end: "HH:MM", если сказано, до скольки («с 8 до 10 утра» → time "08:00", end "10:00»), иначе null.
 weekly: номер дня недели 0–6 (0 = понедельник), если повторяется каждую неделю («по субботам баня»), иначе null.
+repeat: "month" — платёж или дело каждый месяц в одно число («21-го каждого месяца показания счётчика»), date — ближайшая такая дата;
+"year" — важная дата каждый год (день рождения, годовщина), kind "event", date — ближайшая такая дата; иначе null.
+project: название большого дела, если фраза перечисляет его шаги («Ремонт кухни: купить плитку, вызвать мастера» —
+два item "task" с project "Ремонт кухни»), иначе null.
 Регулярная домашняя обязанность («по вторникам выношу мусор», «пылесосить каждую субботу — на тебе») — это "task" с weekly.
 Не выдумывай дела, которых нет во фразе. Если во фразе нет ни дела, ни покупки, ни планов (приветствие, спасибо,
 вопрос, болтовня), верни {{"items": []}}. Не придумывай время: если его нет во фразе, time = null."""
@@ -359,7 +460,19 @@ def from_model(raw: str, today: dt.date, source: str = "") -> list[Parsed]:
         weekly = weekly if isinstance(weekly, int) and 0 <= weekly <= 6 and kind in ("busy", "task") else None
         if weekly is not None:
             date = None
-        out.append(Parsed(kind, text[:1].upper() + text[1:], who, date, time, end, weekly))
+        repeat = it.get("repeat")
+        if repeat == "month" and kind == "task" and date and weekly is None:
+            repeat = f"month:{int(date[8:])}"
+        elif not (repeat == "year" and kind == "event" and date and weekly is None):
+            repeat = None
+        project = it.get("project")
+        project = str(project).strip()[:60] if project and kind == "task" and str(project).strip() else None
+        if source and not repeat and weekly is None:  # a «каждого месяца» the model missed: read it as the rules do
+            found, found_date = find_repeat(f" {low} ", today, date)
+            if (found or "").startswith("month:") and kind == "task" or found == "year" and kind == "event":
+                repeat, date = found, found_date
+        out.append(Parsed(kind, text[:1].upper() + text[1:], who, date, time, end, weekly, repeat,
+                          project[:1].upper() + project[1:] if project else None))
     return out
 
 

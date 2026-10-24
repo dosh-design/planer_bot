@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Обещал — сделал</title>
+<title>Договорились</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -129,14 +129,13 @@ h1.solo{white-space:normal;font-size:19px;overflow-wrap:anywhere}
 /* ============ tabs ============ */
 .tabs{position:sticky;top:0;z-index:3;display:flex;gap:2px;padding:4px;margin:var(--s3) 0 var(--s1);
   background:var(--surface-2);border-radius:var(--r-m);box-shadow:0 0 0 6px var(--bg)}
-.tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 13px/1 var(--font);min-height:40px;
-  border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;
-  transition:background var(--fast),color var(--fast)}
-.tabs button .ic{width:17px;height:17px}
+.tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 11.5px/1 var(--font);min-height:48px;
+  border-radius:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 2px;
+  transition:background var(--fast),color var(--fast);white-space:nowrap}
+.tabs button .ic{width:18px;height:18px}
 .tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1)}
-/* icons only where the four labels still fit on one line */
-@media (max-width:440px){ .tabs button .ic{display:none} }
-@media (max-width:350px){ .tabs button{font-size:12px;gap:3px} }
+/* five sections: icon over a short label, so they fit down to 320 px */
+@media (max-width:350px){ .tabs{gap:0;padding:3px} .tabs button{font-size:10.5px;letter-spacing:-.35px;padding:0} }
 
 /* ============ sections ============ */
 main{animation:in var(--base) var(--ease)}
@@ -148,7 +147,89 @@ main{animation:in var(--base) var(--ease)}
 .sec.past h2{color:var(--text-2);font-size:16px}
 .sec .ava{width:24px;height:24px;font-size:11px;border:0}
 .sec .ava.both{background:var(--brand)}
+.tile-row{display:flex;align-items:center;gap:var(--s2);width:100%;min-height:48px;padding:var(--s2) var(--s3);margin-top:var(--s2);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);color:var(--text);font:600 14px/1.35 var(--font);text-align:left;cursor:pointer}
+.tile-row > span{flex:1;min-width:0}
+.tile-row .ic{width:18px;height:18px;color:var(--text-2);flex:none}
+.proj-head{display:flex;justify-content:flex-end;margin-top:var(--s4)}
+.btn .ic{width:16px;height:16px;vertical-align:-3px;margin-right:2px}
+.proj-card{display:flex;gap:10px;align-items:center;width:100%;margin-top:var(--s2);padding:var(--s3);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r-l);color:var(--text);text-align:left;cursor:pointer}
+.proj-card .tile{width:36px;height:36px;border-radius:11px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;flex:none;align-self:flex-start}
+.proj-card .pbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.proj-card b{font:var(--t-title);overflow-wrap:anywhere}
+.proj-card small{font:var(--t-caption);color:var(--text-2);overflow-wrap:anywhere}
+.proj-card .bar{margin:4px 0 0}
+.proj-card .go{width:16px;height:16px;color:var(--text-2);flex:none}
+.back{display:inline-flex;align-items:center;gap:4px;margin-top:var(--s3);min-height:40px;padding:0 var(--s2) 0 0;border:0;background:none;color:var(--brand-ink);font:700 14px/1 var(--font);cursor:pointer}
+.back .ic{width:18px;height:18px}
+.proj-page{margin-top:var(--s2);padding:var(--s4);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl)}
+.proj-page .ph{display:flex;align-items:flex-start;gap:var(--s2)}
+.proj-page h2{flex:1;min-width:0;margin:0;font:800 22px/1.2 var(--font);letter-spacing:-.4px;overflow-wrap:anywhere}
+.proj-page p{margin:6px 0 0;font:500 14px/1.45 var(--font);color:var(--text-2);overflow-wrap:anywhere}
+.proj-page .meta{display:flex;align-items:center;gap:var(--s2);margin:var(--s3) 0 var(--s2);font:var(--t-caption);color:var(--text-2)}
+.proj-page .people{display:flex}
+.proj-page .people .ava{width:24px;height:24px;font-size:11px;border:2px solid var(--surface);margin-right:-6px}
+.proj-page .people + span{margin-left:8px}
+.proj-page .bar{margin:0}
+.proj-page .addto{width:40px;height:40px;border-radius:var(--r-full);border:0;background:var(--surface-2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
+.proj-page .addto .ic{width:18px;height:18px}
+.card.done-row{opacity:.7;align-items:center}
+.card.done-row .tile{background:var(--success-soft,var(--surface-2));color:var(--success)}
+.card.done-row .title{text-decoration:line-through;text-decoration-color:var(--text-3);color:var(--text-2)}
+.undo{border:0;background:var(--surface-2);color:var(--text);font:700 13px/1 var(--font);min-height:36px;padding:0 var(--s3);border-radius:var(--r-full);cursor:pointer;flex:none}
+.ideas.left{justify-content:flex-start;margin:0}
+.busy-list{margin-top:var(--s5)}
+.sec.proj{margin-bottom:var(--s1)}
+.sec .addto{margin-left:auto;width:36px;height:36px;border-radius:var(--r-full);border:0;background:var(--surface-2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
+.sec .addto .ic{width:18px;height:18px}
+.bar{height:6px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden;margin:0 0 var(--s2)}
+.bar i{display:block;height:100%;background:var(--success);border-radius:inherit}
 .sec .ava .ic{width:14px;height:14px;stroke-width:2.2}
+/* «Семья против бытового хаоса»: one shared score, never a partner-vs-partner table */
+.score-card{display:flex;align-items:center;gap:var(--s3);width:100%;margin-top:var(--s3);padding:var(--s3) var(--s4);text-align:left;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--shadow-1);color:var(--text);cursor:pointer;font:inherit}
+.score-card .tile{width:40px;height:40px;border-radius:12px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;flex:none}
+.score-card .tile .ic{width:22px;height:22px}
+.score-card .sbody{flex:1;min-width:0}
+.score-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;font:700 14px/1.2 var(--font);color:var(--text-2)}
+.score-line b{font:800 24px/1 var(--font);color:var(--text);font-variant-numeric:tabular-nums}
+.score-line .fam b{color:var(--brand-ink)}
+.score-line .sep{font:800 20px/1 var(--font);color:var(--text-3)}
+.score-card small{display:block;margin-top:4px;font:var(--t-caption);color:var(--text-2);overflow-wrap:anywhere}
+.score-card .go{width:18px;height:18px;color:var(--text-2);flex:none}
+.season{margin-top:var(--s2);padding:var(--s4);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl)}
+.season h2{margin:0;font:800 22px/1.2 var(--font);letter-spacing:-.4px}
+.season .vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:var(--s2);margin:var(--s4) 0 var(--s2);text-align:center}
+.season .vs b{display:block;font:800 40px/1 var(--font);font-variant-numeric:tabular-nums}
+.season .vs .fam b{color:var(--brand-ink)}
+.season .vs span{font:700 13px/1.2 var(--font);color:var(--text-2)}
+.season .vs .colon{font:800 30px/1 var(--font);color:var(--text-3)}
+.season p{margin:6px 0 0;font:500 14px/1.45 var(--font);color:var(--text-2)}
+.season .bar i{background:var(--brand)}
+.match{display:flex;align-items:center;gap:var(--s2);padding:10px 0;border-top:1px solid var(--border);font:600 14px/1.3 var(--font)}
+.match:first-of-type{border-top:0}
+.match span{flex:1;min-width:0;color:var(--text-2)}
+.match b{font-variant-numeric:tabular-nums}
+.chip{padding:3px 9px;border-radius:var(--r-full);font:700 12px/1.3 var(--font);white-space:nowrap}
+.chip.family{background:var(--success-soft);color:var(--success-ink)}
+.chip.chaos{background:var(--warning-soft);color:var(--warning-ink)}
+.chip.draw{background:var(--surface-2);color:var(--text-2)}
+.panel{margin-top:var(--s2);padding:var(--s2) var(--s4);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l)}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:var(--s2);margin-top:var(--s2)}
+.ach > div{padding:var(--s3);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);min-width:0}
+.ach .em{font-size:24px;line-height:1}
+.ach b{display:block;margin-top:6px;font:800 14px/1.25 var(--font);overflow-wrap:anywhere}
+.ach small{display:block;margin-top:3px;font:500 12px/1.35 var(--font);color:var(--text-2);overflow-wrap:anywhere}
+.ach .locked{background:transparent;border-style:dashed}
+.ach .locked .em{filter:grayscale(1);opacity:.45}
+.ach .locked b{color:var(--text-2)}
+.ach .when{color:var(--success-ink);font-weight:700}
+.rules{margin:0;padding:var(--s2) 0 var(--s2) 18px;font:500 14px/1.45 var(--font);color:var(--text-2)}
+.rules li + li{margin-top:6px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:var(--s2) 0}
+.modes button{min-height:44px;padding:6px 8px;border-radius:var(--r-m);border:1px solid var(--border);background:var(--surface);color:var(--text);font:700 14px/1.2 var(--font);cursor:pointer}
+.modes button[aria-pressed="true"]{background:var(--brand-fill);border-color:var(--brand-fill);color:var(--on-brand)}
 .calm{display:flex;gap:var(--s3);align-items:center;margin-top:var(--s5);padding:var(--s3) var(--s4);border-radius:var(--r-m);
   background:var(--success-soft);color:var(--success-ink);font:var(--t-caption)}
 .calm .ic{width:18px;height:18px}
@@ -231,6 +312,7 @@ main{animation:in var(--base) var(--ease)}
   background:linear-gradient(180deg,var(--brand-soft),var(--surface) 70%);border:1px solid var(--border)}
 .welcome .hero{width:min(220px,70%);height:auto;display:block;margin:0 auto var(--s2)}
 .welcome h3{font:800 19px/1.25 var(--font);margin:0 0 6px}
+.welcome p.slogan{font:700 14px/1.4 var(--font);color:var(--brand-ink);margin-bottom:var(--s2)}
 .welcome p{margin:0 auto var(--s4);max-width:300px;font:500 14px/1.45 var(--font);color:var(--text-2)}
 .ideas{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--s2);margin-top:var(--s4)}
 .ideas small{width:100%;font:var(--t-caption);color:var(--text-2)}
@@ -337,6 +419,9 @@ main{animation:in var(--base) var(--ease)}
   <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 8.5a14 14 0 0 1 19 0M5.5 12a9.5 9.5 0 0 1 13 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01M3 3l18 18"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4.5a3 3 0 0 0 3.7 4.3M16 6h3.5a3 3 0 0 1-3.7 4.3M12 13v3.5M8.5 20h7l-.7-3.5h-5.6z"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M3.5 9h17M12 9v11M12 9c-1.5-3.5-5.5-4-5.5-1.5S10 9 12 9zM12 9c1.5-3.5 5.5-4 5.5-1.5S14 9 12 9z"/></symbol>
   <symbol id="i-sofa" viewBox="0 0 24 24"><path d="M5 11V8.5A2.5 2.5 0 0 1 7.5 6h9A2.5 2.5 0 0 1 19 8.5V11"/><path d="M3 12.5a2 2 0 0 1 4 0V14h10v-1.5a2 2 0 0 1 4 0V18H3zM5 18v2M19 18v2"/></symbol>
   <!-- what the line is about -->
   <symbol id="p-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></symbol>
@@ -365,7 +450,7 @@ main{animation:in var(--base) var(--ease)}
 <div class="scroll" id="scroll">
 <header class="top">
   <div class="bar">
-    <span class="mark" title="Обещал — сделал" aria-hidden="true"><svg class="ic"><use href="#i-logo"/></svg></span>
+    <span class="mark" title="Договорились" aria-hidden="true"><svg class="ic"><use href="#i-logo"/></svg></span>
     <div class="title-block"><h1 id="hello">&nbsp;</h1><div class="date" id="date"></div></div>
     <span class="pair" id="pair"></span>
   </div>
@@ -373,10 +458,11 @@ main{animation:in var(--base) var(--ease)}
   <div id="invite"></div>
 </header>
 <nav class="tabs" id="tabs" role="tablist" hidden>
-  <button role="tab" data-tab="tasks" aria-selected="true"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
+  <button role="tab" data-tab="home" aria-selected="true"><svg class="ic"><use href="#i-home"/></svg>Главная</button>
+  <button role="tab" data-tab="tasks" aria-selected="false"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
   <button role="tab" data-tab="month" aria-selected="false"><svg class="ic"><use href="#i-cal"/></svg>Календарь</button>
   <button role="tab" data-tab="buy" aria-selected="false"><svg class="ic"><use href="#i-bag"/></svg>Покупки</button>
-  <button role="tab" data-tab="busy" aria-selected="false"><svg class="ic"><use href="#i-clock"/></svg>Заняты</button>
+  <button role="tab" data-tab="projects" aria-selected="false"><svg class="ic"><use href="#i-folder"/></svg>Проекты</button>
 </nav>
 <main id="list" aria-live="polite"></main>
 </div>
@@ -396,7 +482,7 @@ const tg = window.Telegram && Telegram.WebApp;
 const initData = tg ? tg.initData : "";
 // Sample data only on an explicit ?demo link (design previews); a real launch always needs Telegram's signed initData.
 const DEMO = !initData && new URLSearchParams(location.search).has("demo");
-let S = null, tab = "tasks", calMonth = null, calDay = null, calOpen = false, calWeek = null;
+let S = null, P = null, openProject = null, openSeason = false, SEASON = null, tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
 if (tg && initData) {
   tg.ready(); tg.expand();
   // Follow Telegram's own theme, not just the phone's: a dark Telegram on a light phone gets the dark app.
@@ -444,7 +530,8 @@ const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KI
 function demoState(){
   const t = new Date(), d = n => { const x = new Date(t); x.setDate(x.getDate() + n); return iso(x); };
   const dm = n => d(n).slice(8, 10) + "." + d(n).slice(5, 7);
-  return {brand:"Обещал — сделал", me:{id:1,name:"Лена"}, partner:{id:2,name:"Артём"}, invite:"", items:[
+  return {brand:"Договорились", me:{id:1,name:"Лена"}, partner:{id:2,name:"Артём"}, invite:"",
+    score:{family:3, chaos:1, days_left:3, label:"", status:"На этой неделе вы впереди!"}, items:[
     {id:21,kind:"task",text:"Вынести мусор",assignee:2,assignee_name:"Артём",author:1,when:"каждый вторник",weekday:1,warnings:[]},
     {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Артём",author:1,when:"висит 14 дней",hot:true,warnings:[]},
     {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Лена",author:2,when:"просрочено на 2 дня",day:d(-2),hot:true,warnings:[]},
@@ -475,6 +562,8 @@ async function api(path, opts={}){
 }
 function demoApi(path, opts){
   if (path === "/api/state") return S || demoState();
+  if (path === "/api/season") return {current:S.score, last:null, history:[], streak:0, achievements:[], rules:["Пример: в демо-режиме очков нет."],
+                                      nudge_mode:"humor", nudge_modes:{humor:"С юмором", soft:"Мягко", min:"Минимум", off:"Выключены"}};
   const m = path.match(/\/api\/items\/(\d+)/);
   if (m && opts.method === "DELETE" || m && path.endsWith("/done")) S.items = S.items.filter(i => i.id != m[1]);
   if (m && path.endsWith("/who")) { const it = S.items.find(i => i.id == m[1]), w = JSON.parse(opts.body).who;
@@ -513,7 +602,7 @@ const HERO = `<svg class="hero" viewBox="0 0 220 140" aria-hidden="true">
 const IDEAS = ["По вторникам выносить мусор — на тебе", "Купить молоко и хлеб", "В субботу едем к маме"];
 function welcomeHtml(solo){
   return `<div class="welcome">${HERO}<h3>${solo ? "Пока здесь свободно" : "Дел нет. Подозрительно уютно"}</h3>
-    <p>${solo ? "Добавь свой план или пригласи партнёра, чтобы планировать вместе." : "Напишите внизу, кто что делает по дому, и бот напомнит."}</p>${FIRST}
+    <p class="slogan">Меньше бытового хаоса. Больше времени вместе.</p><p>${solo ? "Добавь свой план или пригласи партнёра, чтобы планировать вместе." : "Напишите внизу, кто что делает по дому, и бот напомнит."}</p>${FIRST}
     <div class="ideas"><small>Или начни с примера:</small>${IDEAS.map(t => `<button data-idea="${esc(t)}">${esc(t)}</button>`).join("")}</div></div>`;
 }
 function stateHtml(ic, title, text, action = "", err = false){
@@ -539,6 +628,7 @@ async function load(first){
   if (!initData && !DEMO) return showFatal(new ApiError("", 401));
   try { S = await api("/api/state"); }
   catch(e){ if (first || !S) return showFatal(e); return toast(e.message, "bad"); }
+  if (openProject) await reloadProject();
   $("tabs").hidden = false; $("composer").hidden = false;
   render();
 }
@@ -564,20 +654,7 @@ function header(){
   $("hello").textContent = p ? `${me.name} и ${p.name}` : `${me.name}, начнём с твоих планов?`;
   $("hello").classList.toggle("solo", !p);
 
-  // Counters are label first ("Купить 6"), so no number has to agree with a noun.
-  const today = S.items.filter(i => (i.kind === "task" || i.kind === "event") && i.day === t
-                                 || (i.kind === "task" && i.weekday === weekday(t) && !i.chore_done));
-  const buys = S.items.filter(i => i.kind === "buy");
-  const ours = S.items.filter(i => i.kind === "event" && i.day && i.day >= t).sort((a, b) => a.day < b.day ? -1 : 1)[0];
-  const hot = S.items.filter(i => i.hot), late = hot.some(isLate);
-  const busyToday = onDay(t).filter(i => i.kind === "busy" && i.assignee !== me.id);
-  let html = `<div class="stats">
-    <button class="stat${hot.length ? " hot" + (late ? " late" : "") : " muted"}" data-goto="hot" aria-label="Горит: ${hot.length}"><span>🔥 Горит</span><b>${hot.length}</b></button>
-    <button class="stat${today.length ? "" : " muted"}" data-goto="month" data-day="${t}" aria-label="Сегодня: ${today.length}"><span>Сегодня</span><b>${today.length}</b></button>
-    <button class="stat${buys.length ? "" : " muted"}" data-goto="buy" aria-label="Купить: ${buys.length}"><span>Купить</span><b>${buys.length}</b></button></div>`;
-  if (ours) html += `<button class="plan" data-goto="month" data-day="${ours.day}" aria-label="Ближайший общий план: ${esc(ours.when)}, ${esc(ours.text)}">${icon("i-heart")}<span><small>Вместе: </small><b>${esc(ours.when)}</b> · ${esc(ours.text)}</span>${icon("i-right", "ic go")}</button>`;
-  busyToday.forEach(b => { html += `<div class="note">${icon("i-clock")}<span>Сегодня ${esc(b.assignee_name)}: ${esc(b.text.toLowerCase())}. Совместное лучше на другой день.</span></div>`; });
-  $("summary").innerHTML = html;
+  $("summary").innerHTML = "";
   // Inviting is offered, never required: personal plans work without a partner.
   $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p><b>Планировать вдвоём</b>Позови партнёра: будете видеть общие дела и напоминать друг другу. Ссылка одноразовая, действует 48 часов.</p><button class="btn ghost" data-share="1">Пригласить</button></div>` : "";
 }
@@ -598,6 +675,7 @@ function dueHtml(it){
   if (it.weekday != null && it.kind === "task") return `<div class="due${/^сегодня/.test(w) ? " today" : ""}">${icon("i-repeat")}${esc(w)}</div>`;
   if (isLate(it)) return `<div class="due late">${icon("i-flame")}${esc(w)}</div>`;
   if (it.kind === "event" && it.day && it.day < todayIso()) return `<div class="due past">${icon("i-cal")}${esc(w)}</div>`;
+  if (it.repeat && !isLate(it)) return `<div class="due${it.day === todayIso() ? " today" : ""}">${icon(it.repeat === "year" ? "i-gift" : "i-repeat")}${esc(w)}</div>`;
   if (it.day === todayIso()) return `<div class="due today">${icon("i-cal")}${esc(w)}</div>`;
   if (/^висит/.test(w)) return `<div class="due hang">${icon("i-hourglass")}${esc(w)}</div>`;
   if (/^кажд/.test(w)) return `<div class="due">${icon("i-repeat")}${esc(w)}</div>`;
@@ -624,45 +702,203 @@ function section(title, items, lead = "", cls = "", id = ""){
 
 // ---------- screens ----------
 // [normal, narrow screen]: a hint, never pre-filled text
-const PLACEHOLDER = {tasks:["Добавить дело или покупку…", "Дело или покупка…"], month:["Добавить план на день…", "План на день…"],
-                     buy:["Добавить покупку…", "Что купить…"], busy:["Когда ты занят…", "Когда ты занят…"]};
+const PLACEHOLDER = {home:["Добавить дело, покупку или план…", "Дело или покупка…"], tasks:["Добавить дело или покупку…", "Дело или покупка…"],
+                     month:["План на день или «занят с 8 до 10»…", "План на день…"], buy:["Добавить покупку…", "Что купить…"],
+                     projects:["Проект: шаг, шаг…", "Проект: шаг, шаг…"], project:["Добавить шаг…", "Добавить шаг…"]};
 function render(){
   header();
-  const me = S.me, p = S.partner;
-  const by = k => S.items.filter(i => k === "tasks" ? (i.kind === "task" || i.kind === "event") : i.kind === k);
-  const hot = S.items.filter(i => i.hot);
+  const p = S.partner;
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  $("input").placeholder = PLACEHOLDER[tab][innerWidth <= 360 ? 1 : 0];
-  if (tab === "month") { $("list").innerHTML = monthHtml(); return; }
-  const items = by(tab);
+  const ph = PLACEHOLDER[tab === "projects" && openProject ? "project" : tab];
+  $("input").placeholder = ph[innerWidth <= 360 ? 1 : 0];
+  const nothing = !S.items.length && !(S.projects || []).length;
   let html;
-  if (!items.length) {
-    html = {tasks: welcomeHtml(!p),
-            buy: stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб», и список появится."),
-            busy: stateHtml("i-sofa", "Никто не занят", "Отметьте свои постоянные дела, чтобы вторая половина не планировала на этот вечер совместное. Например: «по четвергам у меня футбол»."),
-           }[tab];
-  } else if (tab === "tasks") {
-    // Order of attention: burning, today, the rest of the promises, then plans ahead.
-    const t = todayIso(), cold = items.filter(i => !i.hot);
-    const rest = cold.filter(i => i.day !== t), todo = rest.filter(i => i.kind === "task" && i.weekday == null);
-    // Weekly house chores: this week's turn first, the ones already done this week at the end.
-    const chores = rest.filter(i => i.kind === "task" && i.weekday != null).sort((a, b) => (a.chore_done ? 1 : 0) - (b.chore_done ? 1 : 0));
-    const ev = rest.filter(i => i.kind === "event"), gone = ev.filter(i => i.day && i.day < t);
-    const plans = ev.filter(i => !gone.includes(i)).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
-    html = (hot.length ? section("🔥 ГОРИТ", hot, "", "hot", "sec-hot")
-                       : `<div class="calm">${icon("i-check")}<span>Сегодня ничего не горит. Подозрительно.</span></div>`)
-         + section("Сегодня", cold.filter(i => i.day === t), `<span class="ava both">${icon("i-cal")}</span>`)
-         + section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
-         + (p ? section(`Дела: ${p.name}`, todo.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "")
-         + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
-         + section("Обязанности по дому", chores, `<span class="ava both">${icon("i-home")}</span>`, "", "sec-chores")
-         + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
-         + section("Прошедшие планы", gone, "", "past");
-  } else if (tab === "busy") {
-    html = section(me.name, items.filter(i => i.assignee === me.id), avaFor(me.name, true))
-         + (p ? section(p.name, items.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "");
-  } else html = section("Купить", items);
+  if (tab === "home" && openSeason) html = seasonHtml();
+  else if (tab === "home") html = nothing ? welcomeHtml(!p) : homeHtml();
+  else if (tab === "month") html = monthHtml();
+  else if (tab === "projects") html = openProject ? projectPageHtml() : projectsHtml();
+  else if (tab === "buy") {
+    const items = S.items.filter(i => i.kind === "buy");
+    html = items.length ? section("Купить", items)
+      : stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб»: список увидите оба, а купленное исчезнет у обоих.");
+  } else html = tasksHtml();
   $("list").innerHTML = html;
+}
+
+// Главная: what matters today, what burns, what is coming, what to buy, how the projects go. Each item shows once.
+const SOON_DAYS = 14;
+function homeHtml(){
+  const t = todayIso(), me = S.me, wd = weekday(t), soonEnd = iso(addDays(new Date(t + "T12:00"), SOON_DAYS));
+  const today = S.items.filter(i => (i.kind === "task" || i.kind === "event") && !i.hot
+    && (i.day === t || (i.kind === "task" && i.weekday === wd && !i.chore_done)));
+  const hot = S.items.filter(i => i.hot);
+  const soon = S.items.filter(i => i.kind === "event" && i.day && i.day > t && i.day <= soonEnd).sort((a, b) => a.day < b.day ? -1 : 1);
+  const busy = onDay(t).filter(i => i.kind === "busy" && i.assignee !== me.id);
+  const buys = S.items.filter(i => i.kind === "buy");
+  const projects = (S.projects || []).filter(pr => pr.open > 0);
+  let html = scoreCard();
+  html += section("Сегодня", today, `<span class="ava both">${icon("i-cal")}</span>`, "", "sec-today");
+  if (!today.length) html += `<div class="calm">${icon("i-check")}<span>На сегодня дел нет. Можно выдохнуть.</span></div>`;
+  html += busy.map(b => `<div class="note">${icon("i-clock")}<span>Сегодня ${esc(b.assignee_name)}: ${esc(b.text.toLowerCase())}${b.when ? ", " + esc(b.when) : ""}. Совместное лучше на другой день.</span></div>`).join("");
+  html += section("Горит", hot, `<span class="ava both" style="background:var(--danger)">${icon("i-flame")}</span>`, "hot", "sec-hot");
+  html += section("Скоро", soon.slice(0, 5), `<span class="ava both">${icon("i-heart")}</span>`, "", "sec-soon");
+  if (buys.length) html += `<div class="sec" id="sec-buy"><span class="ava both">${icon("i-bag")}</span><h2>Купить</h2><span class="count">${buys.length}</span></div>
+    <button class="tile-row" data-goto="buy"><span>${buys.slice(0, 4).map(i => esc(i.text)).join(", ")}${buys.length > 4 ? ` и ещё ${buys.length - 4}` : ""}</span>${icon("i-right", "ic go")}</button>`;
+  if (projects.length) html += `<div class="sec" id="sec-projects"><span class="ava both">${icon("i-folder")}</span><h2>Проекты</h2><span class="count">${projects.length}</span></div>`
+    + projects.slice(0, 4).map(projectRow).join("");
+  return html;
+}
+
+// ---------- «Семья против бытового хаоса» ----------
+// The score is the couple's, from the server (/api/state, /api/season): the app never counts points itself.
+const scoreLine = (f, c) => `<span class="score-line"><span class="fam">Семья <b>${f}</b></span><span class="sep">:</span><span><b>${c}</b> Бытовой хаос</span></span>`;
+function scoreCard(){
+  const sc = S.score;
+  if (!sc) return "";
+  return `<button class="score-card" id="score" data-season="1" aria-label="Наш сезон: семья ${sc.family}, бытовой хаос ${sc.chaos}. ${esc(sc.status)}">
+    <span class="tile">${icon("i-trophy")}</span><span class="sbody">${scoreLine(sc.family, sc.chaos)}<small>${esc(sc.status)}</small></span>${icon("i-right", "ic go")}</button>`;
+}
+function updateScore(sc){
+  if (!sc || !S) return;
+  S.score = sc;
+  const el = $("score");
+  if (el) el.outerHTML = scoreCard();
+}
+const RESULT = {family:"Победа семьи", chaos:"Победа хаоса", draw:"Ничья"};
+function seasonHtml(){
+  const back = `<button class="back" data-back="1">${icon("i-left")}Главная</button>`;
+  if (!SEASON) return back + `<div class="skel"></div><div class="skel"></div>`;
+  const cur = SEASON.current, passed = 7 - cur.days_left + 1, pct = Math.round(100 * Math.min(passed, 7) / 7);
+  const got = SEASON.achievements.filter(a => a.unlocked).length;
+  const modes = Object.entries(SEASON.nudge_modes || {});
+  return back + `<div class="season"><h2>Наш сезон</h2><p>Семья против бытового хаоса · неделя ${esc(cur.label)}</p>
+      <div class="vs"><div class="fam"><b>${cur.family}</b><span>Семья</span></div><div class="colon">:</div><div><b>${cur.chaos}</b><span>Бытовой хаос</span></div></div>
+      <p style="text-align:center;margin-bottom:var(--s3)">${esc(cur.status)}</p>
+      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло дней недели: ${Math.min(passed, 7)} из 7"><i style="width:${pct}%"></i></div>
+      <p>${cur.days_left > 1 ? `До конца матча ${cur.days_left} ${plural(cur.days_left, "день", "дня", "дней")}. Итог придёт в понедельник утром.` : "Последний день матча. Итог придёт в понедельник утром."}</p></div>`
+    + `<div class="sec"><h2>Прошлые матчи</h2>${SEASON.history.length ? `<span class="count">${SEASON.history.length}</span>` : ""}</div>`
+    + (SEASON.history.length
+        ? `<div class="panel">${SEASON.history.map(m => `<div class="match"><span>${esc(m.label)}</span><b>${m.family} : ${m.chaos}</b><span class="chip ${m.result}">${RESULT[m.result]}</span></div>`).join("")}</div>`
+        : `<div class="calm">${icon("i-trophy")}<span>Первый матч идёт прямо сейчас. Итог недели появится здесь.</span></div>`)
+    + `<div class="sec"><h2>Достижения</h2><span class="count">${got} из ${SEASON.achievements.length}</span></div>
+       <div class="ach">${SEASON.achievements.map(a => `<div class="${a.unlocked ? "" : "locked"}"><span class="em" aria-hidden="true">${a.icon}</span><b>${esc(a.title)}</b>
+         <small>${esc(a.about)}</small>${a.unlocked ? `<small class="when">${esc(a.detail || "")} Получено ${esc(shortDate(a.unlocked.slice(0, 10)))}.</small>` : ""}</div>`).join("")}</div>`
+    + `<div class="sec"><h2>Как считаются очки</h2></div><div class="panel"><ul class="rules">${SEASON.rules.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>`
+    + (modes.length ? `<div class="sec"><h2>Напоминания о просрочке</h2></div>
+       <div class="modes" role="group" aria-label="Напоминания о просрочке">${modes.map(([k, v]) => `<button data-nmode="${k}" aria-pressed="${SEASON.nudge_mode === k}">${esc(v)}</button>`).join("")}</div>
+       <p class="hint-small" style="margin:0;font:500 13px/1.4 var(--font);color:var(--text-2)">С юмором: на 2, 4 и 7-й день после срока, дальше всё реже. Мягко: без сарказма. Минимум: только 2-й и 7-й день. Напоминания на время, которое вы поставили сами, приходят всегда.</p>` : "");
+}
+async function showSeason(){
+  openSeason = true; SEASON = null; tab = "home"; render();
+  try { SEASON = await api("/api/season"); if (SEASON.current) S.score = SEASON.current; }
+  catch(err){ openSeason = false; toast(err.message, "bad"); }
+  render(); $("tabs").scrollIntoView({block:"start"});
+}
+
+// Дела: everything to do and plan, by whose it is; project steps live in their projects.
+function tasksHtml(){
+  const me = S.me, p = S.partner, t = todayIso();
+  const items = S.items.filter(i => i.kind === "task" || i.kind === "event");
+  if (!items.length) return welcomeHtml(!p);
+  const byHeat = (a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0);
+  const todo = items.filter(i => i.kind === "task" && i.weekday == null && !i.project_id).sort(byHeat);
+  const chores = items.filter(i => i.kind === "task" && i.weekday != null).sort((a, b) => (a.chore_done ? 1 : 0) - (b.chore_done ? 1 : 0));
+  const ev = items.filter(i => i.kind === "event" && i.repeat !== "year"), gone = ev.filter(i => i.day && i.day < t);
+  const plans = ev.filter(i => !gone.includes(i)).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
+  const dates = items.filter(i => i.repeat === "year").sort((a, b) => a.day < b.day ? -1 : 1);
+  const steps = items.filter(i => i.project_id).length;
+  return section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
+       + (p ? section(`Дела: ${p.name}`, todo.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "")
+       + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
+       + section("Обязанности по дому", chores, `<span class="ava both">${icon("i-home")}</span>`, "", "sec-chores")
+       + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
+       + section("Важные даты", dates, `<span class="ava both">${icon("i-gift")}</span>`, "", "sec-dates")
+       + section("Прошедшие планы", gone, "", "past")
+       + (steps ? `<button class="tile-row" data-goto="projects">${icon("i-folder")}<span>Ещё ${steps} ${plural(steps, "шаг", "шага", "шагов")} в проектах</span>${icon("i-right", "ic go")}</button>` : "");
+}
+
+// ---------- projects ----------
+const PROJECT_IDEAS = ["Дом и ремонт", "Отпуск", "Платежи", "Подготовка к празднику"];
+const progressBar = pr => { const pct = Math.round(100 * pr.done / Math.max(pr.total, 1));
+  return `<div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(pr.name)}: сделано ${pr.done} из ${pr.total}"><i style="width:${pct}%"></i></div>`; };
+function projectRow(pr){
+  const next = S.items.find(i => i.project_id === pr.id);
+  return `<button class="proj-card" data-project="${pr.id}">
+    <span class="tile">${icon("i-folder")}</span>
+    <span class="pbody"><b>${esc(pr.name)}</b>${pr.about ? `<small>${esc(pr.about)}</small>` : ""}${progressBar(pr)}
+      <small>${pr.total ? `${pr.done} из ${pr.total}` : "Пока без шагов"}${next ? ` · дальше: ${esc(next.text)}` : ""}</small></span>
+    ${icon("i-right", "ic go")}</button>`;
+}
+function projectsHtml(){
+  const list = S.projects || [];
+  const create = `<button class="btn" data-newproject="1">${icon("i-plus")} Новый проект</button>`;
+  if (!list.length) return `<div class="state"><div class="badge">${icon("i-folder")}</div><h3>Проектов пока нет</h3>
+    <p>Проект собирает шаги одного большого дела: у каждого шага свой срок и свой человек, а сверху видно, сколько сделано.</p>
+    <div class="ideas"><small>Например:</small>${PROJECT_IDEAS.map(n => `<button data-newproject="1" data-name="${esc(n)}">${esc(n)}</button>`).join("")}</div>
+    <p style="margin-top:var(--s4)">${create}</p></div>`;
+  return `<div class="proj-head">${create}</div>` + list.map(projectRow).join("");
+}
+function projectPageHtml(){
+  if (!P) return `<div class="skel"></div><div class="skel"></div>`;
+  const open = P.items.filter(i => i.status === "open"), done = P.items.filter(i => i.status === "done");
+  const people = [S.me, S.partner].filter(Boolean).map((u, k) => `<span class="ava" style="background:var(${k ? "--success" : "--brand-fill"})" title="${esc(u.name)}">${initial(u.name)}</span>`).join("");
+  return `<button class="back" data-back="1">${icon("i-left")}Все проекты</button>
+    <div class="proj-page"><div class="ph"><h2>${esc(P.name)}</h2><button class="addto" data-editproject="1" aria-label="Изменить проект">${icon("p-tool")}</button></div>
+      ${P.about ? `<p>${esc(P.about)}</p>` : ""}
+      <div class="meta"><span class="people">${people}</span><span>${P.total ? `Сделано ${P.done} из ${P.total}` : "Добавьте первый шаг внизу"}</span></div>${progressBar(P)}</div>`
+    + section("Шаги", open, "", "", "sec-steps")
+    + (open.length ? "" : `<div class="calm">${icon("i-check")}<span>${P.total ? "Все шаги сделаны. Красота." : "Шагов пока нет. Напишите внизу, например «купить плитку до 10.11»."}</span></div>`)
+    + (done.length ? `<div class="sec past"><h2>Сделано</h2><span class="count">${done.length}</span></div>`
+       + done.map(i => `<div class="card done-row"><span class="tile">${icon("i-check")}</span><div class="body"><div class="title">${esc(i.text)}</div>${whoHtml(i)}</div>
+           <button class="undo" data-undo="${i.id}" aria-label="Вернуть: ${esc(i.text)}">Вернуть</button></div>`).join("") : "");
+}
+async function showProject(id){
+  openProject = id; P = null; tab = "projects"; render();
+  try { P = (await api(`/api/projects/${id}`)).project; }
+  catch(err){ openProject = null; toast(err.message, "bad"); }
+  render(); $("tabs").scrollIntoView({block:"start"});
+}
+async function reloadProject(){
+  if (!openProject) return;
+  try { P = (await api(`/api/projects/${openProject}`)).project; }
+  catch(err){ if (err.status === 404) { openProject = null; P = null; } }
+}
+function projectSheet(pr, name = ""){
+  const editing = !!pr;
+  $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon("i-folder")}</span><div><b>${editing ? "Проект" : "Новый проект"}</b><small>${editing ? "Название и описание видят оба" : "Шаги добавите внутри проекта"}</small></div></div>
+    <form class="edit" id="pform">
+      <label>Название<input name="name" maxlength="60" required value="${esc(editing ? pr.name : name)}" autocomplete="off"></label>
+      ${editing ? "" : `<div class="ideas left">${PROJECT_IDEAS.map(n => `<button type="button" data-pname="${esc(n)}">${esc(n)}</button>`).join("")}</div>`}
+      <label>Коротко о проекте<input name="about" maxlength="300" value="${esc(editing ? pr.about : "")}" placeholder="Необязательно" autocomplete="off"></label>
+      <div class="err" id="pform-err" role="alert"></div>
+      <button class="btn" type="submit">${editing ? "Сохранить" : "Создать"}</button></form>`
+    + (editing ? `<button class="opt danger" data-delproject="1">${icon("i-trash")}<span>Удалить проект</span></button>` : "")
+    + `<button class="opt cancel" data-close="1">Отмена</button>`;
+  $("pform").onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData($("pform")), btn = $("pform").querySelector(".btn"); if (btn.disabled) return;
+    btn.disabled = true; $("pform-err").textContent = "";
+    try {
+      const r = await api(editing ? `/api/projects/${pr.id}` : "/api/projects", {method: editing ? "PATCH" : "POST",
+                          body: JSON.stringify({name: f.get("name"), about: f.get("about")})});
+      closeSheet(); toast(editing ? "Сохранено." : "Проект создан. Добавьте первые шаги внизу.", "good");
+      await load(); return editing ? (await reloadProject(), render()) : showProject(r.project.id);
+    } catch(err){ $("pform-err").textContent = err.message; btn.disabled = false; }
+  };
+  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
+  $("sheet").onclick = async e => {
+    const b = e.target.closest("button");
+    if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (!b) return;
+    if (b.dataset.pname) { $("pform").name.value = b.dataset.pname; return; }
+    if (b.dataset.delproject) {
+      if (!b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Удалить? Шаги останутся в «Делах»"; return; }
+      try { await api(`/api/projects/${pr.id}`, {method:"DELETE"}); toast("Проект удалён, шаги перенесены в «Дела».", "good"); }
+      catch(err){ return toast(err.message, "bad"); }
+      closeSheet(); openProject = null; P = null; await load();
+    }
+  };
+  setTimeout(() => $("pform").name.focus(), 50);
 }
 
 // ---------- calendar ----------
@@ -726,23 +962,24 @@ function monthHtml(){
       <button class="nav" data-cal="1" aria-label="${calOpen ? "Следующий месяц" : "Следующая неделя"}">${icon("i-right")}</button></div>
     <div class="cal-grid" data-unit="${unit}">${cells}</div>
     <div class="legend"><span><span class="dots"><i class="d-ours"></i></span>вместе</span><span><span class="dots"><i class="d-mine"></i></span>личное</span><span><span class="dots"><i class="d-busy"></i></span>занят</span><span><span class="dots"><i class="d-hot"></i></span>горит</span></div></div>
-    <div class="day-label">${esc(label.charAt(0).toUpperCase() + label.slice(1))} <small>${sel.length ? sel.length + " " + plural(sel.length, "запись", "записи", "записей") : ""}</small></div>${list}`;
+    <div class="day-label">${esc(label.charAt(0).toUpperCase() + label.slice(1))} <small>${sel.length ? sel.length + " " + plural(sel.length, "запись", "записи", "записей") : ""}</small></div>${list}${busyHtml()}`;
+}
+// Занятость lives with the calendar: regular («каждый четверг») and one-off busy time of both, with the same cards.
+function busyHtml(){
+  const t = todayIso(), me = S.me, p = S.partner;
+  const busy = S.items.filter(i => i.kind === "busy" && (i.weekday != null || !i.day || i.day >= t));
+  if (!busy.length) return `<div class="note busy-list">${icon("i-clock")}<span>Занятость: напишите «по четвергам у меня футбол» или «в субботу занят с 10 до 14», и вторая половина не запланирует на это время совместное.</span></div>`;
+  return `<div class="busy-list">` + section(`Занятость: ${me.name}`, busy.filter(i => i.assignee === me.id), avaFor(me.name, true), "", "sec-busy")
+    + (p ? section(`Занятость: ${p.name}`, busy.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "") + `</div>`;
 }
 
 // ---------- interactions ----------
 const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { tab = b.dataset.tab; render(); $("tabs").scrollIntoView({block:"start"}); } };
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { if (b.dataset.tab === "projects") { openProject = null; P = null; } goTab(b.dataset.tab); } };
 
-$("summary").onclick = e => {
-  const g = e.target.closest("[data-goto]"); if (!g) return;
-  tab = g.dataset.goto === "hot" ? "tasks" : g.dataset.goto;
-  if (g.dataset.day) { calDay = g.dataset.day; calWeek = monday(new Date(calDay + "T12:00")); calOpen = false; }
-  render();
-  const target = g.dataset.goto === "hot" && $("sec-hot");
-  (target || $("tabs")).scrollIntoView({behavior: smooth(), block: "start"});
-};
+function goTab(name){ tab = name; openSeason = false; if (name !== "projects") { openProject = null; P = null; } render(); $("tabs").scrollIntoView({block:"start"}); }
 
-const DONE_LINES = ["Опа. Человек слова!", "Обещание выполнено.", "Готово. Вторая половина уже в курсе."];
+const DONE_LINES = ["Опа. Человек слова!", "Готово, как договорились.", "Готово. Вторая половина уже в курсе."];
 document.body.addEventListener("click", async e => {
   if (e.target.closest("[data-retry]")) return load(true);
   if (e.target.closest("[data-close-app]")) return tg && tg.close();
@@ -752,6 +989,28 @@ document.body.addEventListener("click", async e => {
     return tg && initData ? tg.openTelegramLink(url) : window.open(url);
   }
   if (!e.target.closest("#list")) return;
+  const g = e.target.closest("[data-goto]");
+  if (g) return goTab(g.dataset.goto);
+  const pr = e.target.closest("[data-project]");
+  if (pr) return showProject(+pr.dataset.project);
+  const np = e.target.closest("[data-newproject]");
+  if (np) return projectSheet(null, np.dataset.name || "");
+  if (e.target.closest("[data-season]")) return showSeason();
+  const nm = e.target.closest("[data-nmode]");
+  if (nm) {
+    try { SEASON.nudge_mode = (await api("/api/settings", {method:"POST", body:JSON.stringify({nudge_mode: nm.dataset.nmode})})).nudge_mode;
+          toast(`Напоминания: ${SEASON.nudge_modes[SEASON.nudge_mode]}.`, "good"); }
+    catch(err){ return toast("Не сохранилось: " + err.message, "bad"); }
+    return render();
+  }
+  if (e.target.closest("[data-back]")) { openProject = null; P = null; openSeason = false; return render(); }
+  if (e.target.closest("[data-editproject]")) return P && projectSheet(P);
+  const un = e.target.closest("[data-undo]");
+  if (un) {
+    try { await api(`/api/items/${un.dataset.undo}/undo`, {method:"POST"}); toast("Вернул в шаги.", "good"); }
+    catch(err){ return toast("Не вернулось: " + err.message, "bad"); }
+    await load(); return;
+  }
   const nav = e.target.closest("[data-cal]"), day = e.target.closest("[data-day]");
   const mode = e.target.closest("[data-calmode]");
   if (mode) {
@@ -767,6 +1026,8 @@ document.body.addEventListener("click", async e => {
   }
   const idea = e.target.closest("[data-idea]");
   if (idea) { const inp = $("input"); inp.value = idea.dataset.idea; store.set("draft", inp.value); inp.focus(); return; }  // fills the field, saves nothing
+  const addto = e.target.closest("[data-addto]");
+  if (addto) { const inp = $("input"); inp.value = addto.dataset.addto + ": "; inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); return; }
   if (e.target.closest("[data-first]")) {
     // Add through the usual field; for another calendar day the date goes in first («05.11 …»).
     const inp = $("input");
@@ -776,14 +1037,18 @@ document.body.addEventListener("click", async e => {
   if (day) { calDay = day.dataset.day; render(); return; }
   const d = e.target.closest("[data-done]");
   if (d) {
-    const id = +d.dataset.done, el = $("i" + id), it = S.items.find(i => i.id === id);
+    const id = +d.dataset.done, el = $("i" + id), it = findItem(id);
     if (el.classList.contains("done")) return;
-    el.classList.add("done"); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success");
-    try { await api(`/api/items/${id}/done`, {method:"POST"}); }
+    ticked = Date.now(); el.classList.add("done"); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success");
+    let res;
+    try { res = await api(`/api/items/${id}/done`, {method:"POST"}); }
     catch(err){ el.classList.remove("done"); toast("Не отметилось: " + err.message, "bad"); return; }
-    if (it && it.weekday != null) {  // a weekly chore stays on the list, ticked until its next turn
+    updateScore(res.score);  // the server's count; a repeated tap gets scored=false and no victory line
+    const win = res.scored && res.toast;
+    if (it && (it.weekday != null || it.repeat)) {  // a chore or a payment stays: ticked till its next turn, or moved on
       await load();
-      toast("Отмечено на эту неделю.", "good", 6000, {label: "Вернуть", run: async () => {
+      const next = S.items.find(i => i.id === id);
+      toast((win ? win + " " : "") + (it.repeat ? `Следующий раз: ${next ? next.when : ""}` : "Отмечено на эту неделю."), "good", 6000, {label: "Вернуть", run: async () => {
         try { await api(`/api/items/${id}/undo`, {method:"POST"}); toast("Вернул.", "good"); }
         catch(err){ toast("Не вернулось: " + err.message, "bad"); }
         await load();
@@ -791,9 +1056,10 @@ document.body.addEventListener("click", async e => {
       return;
     }
     // The card fades out; «Вернуть» cancels that if it comes first, so the list never drops a restored item.
-    const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); }, 260); }, 500);
+    // A project step also moves its «N из M», which comes from the server.
+    const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); it && it.project_id ? load() : render(); }, 260); }, 500);
     let t2 = 0;
-    toast(it && it.kind === "buy" ? "Куплено. Холодильник благодарит." : DONE_LINES[id % 3], "good", 6000, {label: "Вернуть", run: async () => {
+    toast(it && it.kind === "buy" ? "Куплено. Холодильник благодарит." : win || DONE_LINES[id % 3], "good", 6000, {label: "Вернуть", run: async () => {
       clearTimeout(t1); clearTimeout(t2);
       try { await api(`/api/items/${id}/undo`, {method:"POST"}); toast("Вернул в список.", "good"); }
       catch(err){ toast("Не вернулось: " + err.message, "bad"); }
@@ -802,9 +1068,10 @@ document.body.addEventListener("click", async e => {
     return;
   }
   const m = e.target.closest("[data-more]");
-  if (m) openSheet(S.items.find(i => i.id === +m.dataset.more));
+  if (m) openSheet(findItem(+m.dataset.more));
 });
 
+const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id));
 function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); }
 function openSheet(it){
   if (!it) return;
@@ -815,6 +1082,8 @@ function openSheet(it){
     if (S.partner) rows.push(`<button class="opt" data-who="partner">${icon("i-send")}<span>Передать: ${esc(S.partner.name)}</span>${mark("partner")}</button>`);
     rows.push(`<button class="opt" data-who="both">${icon("i-users")}<span>Делаем вместе</span>${mark("both")}</button>`);
   }
+  if (it.kind === "task" && it.project_id) rows.push(`<button class="opt" data-toproj="none">${icon("i-folder")}<span>Убрать из проекта «${esc(it.project || "")}»</span></button>`);
+  else if (it.kind === "task") (S.projects || []).slice(0, 5).forEach(pr => rows.push(`<button class="opt" data-toproj="${pr.id}">${icon("i-folder")}<span>В проект «${esc(pr.name)}»</span></button>`));
   if (it.day && (it.warnings || []).length) rows.push(`<button class="opt" data-openday="${it.day}">${icon("i-cal")}<span>Открыть этот день в календаре</span></button>`);
   rows.push(`<button class="opt" data-edit="1">${icon("p-tool")}<span>${it.kind === "buy" || it.weekday != null ? "Изменить название" : "Изменить название или срок"}</span></button>`);
   rows.push(`<button class="opt danger" data-del="1">${icon("i-trash")}<span>Удалить</span></button><button class="opt cancel" data-close="1">Отмена</button>`);
@@ -851,6 +1120,7 @@ function openSheet(it){
     if (b.dataset.del && !b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Точно удалить? Нажмите ещё раз"; return; }
     try {
       if (b.dataset.del) { await api(`/api/items/${it.id}`, {method:"DELETE"}); toast("Удалено.", "good"); }
+      if (b.dataset.toproj) { await api(`/api/items/${it.id}`, {method:"PATCH", body:JSON.stringify({project_id: b.dataset.toproj === "none" ? null : +b.dataset.toproj})}); toast(b.dataset.toproj === "none" ? "Убрано из проекта, задача осталась в «Делах»." : "Перенесено в проект.", "good"); }
       if (b.dataset.who) { await api(`/api/items/${it.id}/who`, {method:"POST", body:JSON.stringify({who:b.dataset.who})}); toast(b.dataset.who === "partner" ? "Передано. Без обид." : "Готово, переназначено.", "good"); }
     } catch(err){ toast("Не сохранилось: " + err.message, "bad"); }
     closeSheet();
@@ -869,13 +1139,22 @@ $("form").onsubmit = async e => {
   const text = $("input").value.trim(); if (!text) return $("input").focus();
   sending = true; $("add").disabled = true; $("composer").classList.add("busy"); $("form").setAttribute("aria-busy", "true");
   try {
+    if (tab === "projects" && openProject) {  // inside a project the line is its next step, whatever it says
+      const r = await api(`/api/projects/${openProject}/items`, {method:"POST", body:JSON.stringify({text, who:"me"})});
+      $("input").value = ""; store.set("draft", "");
+      P = r.project; toast("Шаг добавлен. Назначить другого: нажмите на шаг.", "good");
+      await load(); return;
+    }
     const r = await api("/api/add", {method:"POST", body:JSON.stringify({text})});
     $("input").value = ""; store.set("draft", "");
     const it = r.items[0];
-    tab = it.kind === "buy" ? "buy" : it.kind === "busy" ? "busy" : "tasks";
+    // Stay where the line belongs: shopping in «Покупки», busy time in the calendar, project steps in their project.
+    if (it.project_id) { await load(); toast(`Записал в проект «${it.project}»`, "good"); return showProject(it.project_id); }
+    tab = it.kind === "buy" ? "buy" : it.kind === "busy" ? "month" : tab === "home" || tab === "projects" ? "home" : tab === "month" ? "month" : "tasks";
     const warn = r.items.flatMap(i => i.warnings || []);
     if (warn.length) toast(clean(warn[0]), "bad", 7000);
-    else toast(`Записал: ${r.items.map(i => i.text).join(", ")}`, "good");
+    else if (r.items.every(i => i.existing)) toast(`Уже в списке: ${r.items.map(i => i.text).join(", ")}`, "good");
+    else toast(`Записал: ${r.items.filter(i => !i.existing).map(i => i.text).join(", ")}`, "good");
     await load();
     r.items.forEach(i => { const el = $("i" + i.id); if (el) { el.classList.add("fresh"); el.scrollIntoView({block:"nearest", behavior: smooth()}); } });
   } catch(err){ toast(err.status === 400 ? err.message : "Не сохранилось: " + err.message + " Текст остался в поле.", "bad", 6000); }
@@ -898,6 +1177,23 @@ if (tg && tg.onEvent) tg.onEvent("viewportChanged", fit);
 // iOS scrolls the whole page to reveal a focused field; the shell already moved, so put the page back.
 $("input").addEventListener("focus", () => setTimeout(() => { window.scrollTo(0, 0); fit(); }, 50));
 window.addEventListener("online", () => S || load(true));
+// Sync between the two phones: re-read the state when the app comes back to the screen and every 20 s while it is
+// open, and redraw only if something changed. Never while a sheet is open, a line is being sent or a tick can be undone.
+let lastState = "", ticked = 0;
+async function refresh(){
+  // The field keeps its text and focus: only the list is redrawn.
+  if (!S || sending || document.hidden || $("sheet").classList.contains("on") || Date.now() - ticked < 7000) return;  // a tick's «Вернуть» is still on screen
+  try {
+    const next = await api("/api/state"), was = P ? JSON.stringify(P) : "";
+    if (openProject) await reloadProject();
+    if (openSeason) SEASON = await api("/api/season");
+    const key = JSON.stringify(next) + (P ? JSON.stringify(P) : "");
+    if (key === lastState && (!P || JSON.stringify(P) === was)) return;
+    lastState = key; S = next; render();
+  } catch(e){}  // a hiccup on a background refresh is not worth a toast
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+setInterval(refresh, 20000);
 
 load(true);
 </script>

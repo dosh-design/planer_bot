@@ -10,6 +10,8 @@ from aiohttp import web
 
 import bot as chat
 import db
+import game
+import jokes
 import parser
 import planner
 import webapp_auth
@@ -40,7 +42,7 @@ async def auth(request: web.Request, handler):
     return await handler(request)
 
 
-def _item(row, today) -> dict:
+def _item(row, today, names: dict | None = None) -> dict:
     return {
         "id": row["id"], "kind": row["kind"], "text": row["text"], "status": row["status"],
         "assignee": row["assignee_id"], "assignee_name": planner.name(row["assignee_id"]),
@@ -48,6 +50,8 @@ def _item(row, today) -> dict:
         "end": row["end_time"],
         "hot": planner.is_hot(row, today),
         "chore_done": planner.chore_done(row, today),
+        "repeat": row["repeat"], "project_id": row["project_id"],
+        "project": (names or {}).get(row["project_id"]) if row["project_id"] else None,
         "weekday": row["weekday"],
         "warnings": planner.warnings(row),
     }
@@ -58,6 +62,9 @@ async def state(request: web.Request) -> web.Response:
     u = db.user(uid)
     p = db.partner(uid)
     today = db.local_now().date()
+    db.roll_yearly(today)
+    projects = db.projects(u["couple_id"])
+    names = {pr["id"]: pr["name"] for pr in projects}
     invite = ""
     if not p and request.app.get(BOT):
         invite = await chat.invite_link(request.app[BOT], uid) or ""
@@ -67,7 +74,9 @@ async def state(request: web.Request) -> web.Response:
         "me": {"id": uid, "name": u["name"]},
         "partner": {"id": p["id"], "name": p["name"]} if p else None,
         "invite": invite,
-        "items": [_item(r, today) for r in db.items(u["couple_id"])],
+        "items": [_item(r, today, names) for r in db.items(u["couple_id"])],
+        "projects": projects,
+        "score": game.current(u["couple_id"], today),  # the couple's shared weekly match, same as the bot's /season
     })
 
 
@@ -83,13 +92,16 @@ async def add(request: web.Request) -> web.Response:
         return _err("Это не похоже на дело. Напишите, что сделать, купить или когда кто занят.")
     if intent == "unclear":
         return _err("Маловато слов. Уточните: «купить молоко» или «вкрутить лампочку до субботы».")
+    before = db.last_item_id()
     rows, notes = await planner.add_text_async(request["uid"], text)
     if not rows:
         return _err("Не понял, что записать. Скажите проще: что сделать и когда.")
     if request.app.get(BOT):
         await chat.send(request.app[BOT], notes)
     today = db.local_now().date()
-    return web.json_response({"items": [_item(r, today) for r in rows]})
+    names = {pr["id"]: pr["name"] for pr in db.projects(rows[0]["couple_id"])}
+    # existing: a purchase that was already on the list, so the app says «уже в списке», not «записал»
+    return web.json_response({"items": [_item(r, today, names) | {"existing": r["id"] <= before} for r in rows]})
 
 
 def _id(request: web.Request) -> int:
@@ -100,12 +112,33 @@ def _id(request: web.Request) -> int:
 
 
 async def done(request: web.Request) -> web.Response:
-    ok, notes = planner.done(request["uid"], _id(request))
-    if not ok:
+    d = planner.complete(request["uid"], _id(request))
+    if not d.ok:
         return _err("Запись не найдена", 404)
     if request.app.get(BOT):
-        await chat.send(request.app[BOT], notes)
-    return web.json_response({"ok": True})
+        await chat.send(request.app[BOT], d.notes)
+    # scored and toast come from the server's own count: a second tap or a retried request gets scored=false
+    return web.json_response({"ok": True, "scored": d.scored, "toast": d.toast,
+                              "score": game.current(db.user(request["uid"])["couple_id"], db.local_now().date())})
+
+
+async def season(request: web.Request) -> web.Response:
+    """«Наш сезон»: the current match, the history and the achievements of the caller's own couple only."""
+    uid = request["uid"]
+    return web.json_response(game.season(db.user(uid)["couple_id"], db.local_now().date())
+                             | {"nudge_mode": planner.nudge_mode(uid), "nudge_modes": jokes.NUDGE_MODE_NAMES})
+
+
+async def settings(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    mode = body.get("nudge_mode") if isinstance(body, dict) else None
+    if mode not in jokes.NUDGE_MODES:
+        return _err("Такого режима нет")
+    db.set_nudge_mode(request["uid"], mode)
+    return web.json_response({"nudge_mode": mode})
 
 
 async def undo(request: web.Request) -> web.Response:
@@ -121,11 +154,23 @@ async def change(request: web.Request) -> web.Response:
         body = None
     if not isinstance(body, dict):
         return _err("Пустой запрос")
+    if "project_id" in body:  # into a project or out of it; may come alone or with other changes
+        pid = body["project_id"]
+        if pid is not None and not isinstance(pid, int) or not planner.move_to_project(request["uid"], _id(request), pid):
+            return _err("Не получилось перенести в проект")
+        if not any(k in body for k in ("text", "day", "time", "end")):
+            return web.json_response({"item": _row_json(request)})
     ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in ("text", "day", "time", "end") if k in body})
     if not ok:
         return _err(error, 404 if error == "Запись не найдена" else 400)
-    row = db.item(_id(request), db.user(request["uid"])["couple_id"])
-    return web.json_response({"item": _item(row, db.local_now().date())})
+    return web.json_response({"item": _row_json(request)})
+
+
+def _row_json(request: web.Request) -> dict:
+    cid = db.user(request["uid"])["couple_id"]
+    row = db.item(_id(request), cid)
+    pr = db.project(row["project_id"], cid) if row["project_id"] else None
+    return _item(row, db.local_now().date(), {pr["id"]: pr["name"]} if pr else None)
 
 
 async def remove(request: web.Request) -> web.Response:
@@ -145,6 +190,65 @@ async def who(request: web.Request) -> web.Response:
         row = db.item(_id(request), db.user(request["uid"])["couple_id"])
         await chat.send(request.app[BOT], planner.assigned_notes(request["uid"], row))
     return web.json_response({"ok": True})
+
+
+# ---------- projects ----------
+
+async def _body(request: web.Request) -> dict | None:
+    try:
+        body = await request.json()
+    except Exception:
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def _project_json(request: web.Request, pid: int) -> dict | None:
+    cid = db.user(request["uid"])["couple_id"]
+    pr = next((x for x in db.projects(cid) if x["id"] == pid), None)
+    if not pr:
+        return None
+    today = db.local_now().date()
+    return {**pr, "items": [_item(r, today, {pid: pr["name"]})
+                            for r in db.project_items(pid, cid)]}
+
+
+async def project_create(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    pid, error = planner.create_project(request["uid"], body.get("name", ""), body.get("about", ""))
+    if not pid:
+        return _err(error)
+    return web.json_response({"project": _project_json(request, pid)})
+
+
+async def project_get(request: web.Request) -> web.Response:
+    data = _project_json(request, _id(request))
+    return web.json_response({"project": data}) if data else _err("Проект не найден", 404)
+
+
+async def project_change(request: web.Request) -> web.Response:
+    body = await _body(request)
+    if body is None:
+        return _err("Пустой запрос")
+    ok, error = planner.edit_project(request["uid"], _id(request), {k: body[k] for k in ("name", "about") if k in body})
+    if not ok:
+        return _err(error, 404 if error == "Проект не найден" else 400)
+    return web.json_response({"project": _project_json(request, _id(request))})
+
+
+async def project_remove(request: web.Request) -> web.Response:
+    if not planner.delete_project(request["uid"], _id(request)):
+        return _err("Проект не найден", 404)
+    return web.json_response({"ok": True})
+
+
+async def project_add(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    rows, notes, error = planner.add_to_project(request["uid"], _id(request), body.get("text", ""), body.get("who", "me"))
+    if error:
+        return _err(error, 404 if error == "Проект не найден" else 400)
+    if request.app.get(BOT):
+        await chat.send(request.app[BOT], notes)
+    return web.json_response({"project": _project_json(request, _id(request))})
 
 
 async def page(_):
@@ -169,4 +273,11 @@ def build_app(bot=None) -> web.Application:
     app.router.add_post("/api/items/{id}/undo", undo)
     app.router.add_patch("/api/items/{id}", change)
     app.router.add_delete("/api/items/{id}", remove)
+    app.router.add_get("/api/season", season)
+    app.router.add_post("/api/settings", settings)
+    app.router.add_post("/api/projects", project_create)
+    app.router.add_get("/api/projects/{id}", project_get)
+    app.router.add_patch("/api/projects/{id}", project_change)
+    app.router.add_delete("/api/projects/{id}", project_remove)
+    app.router.add_post("/api/projects/{id}/items", project_add)
     return app

@@ -5,9 +5,11 @@ Nothing here talks to Telegram: functions return Out messages (chat id, text, bu
 import asyncio
 import datetime as dt
 import html
+import logging
 from dataclasses import dataclass, field
 
 import db
+import game
 import jokes
 import parser
 from config import config
@@ -16,6 +18,7 @@ WEEKLY = ["каждый понедельник", "каждый вторник", 
           "каждую субботу", "каждое воскресенье"]
 HOT_AFTER_DAYS = 7
 ICONS = {"task": "🔧", "buy": "🛒", "busy": "🚫", "event": "💞"}
+log = logging.getLogger("planner")
 
 
 @dataclass
@@ -55,6 +58,8 @@ def is_hot(row, today: dt.date | None = None) -> bool:
     today = today or db.local_now().date()
     if row["kind"] not in ("task", "event") or row["status"] != "open" or row["weekday"] is not None:
         return False  # a weekly chore never burns: it comes back every week anyway
+    if row["project_id"] and not row["day"]:
+        return False  # an undated step of a project waits for the project, it isn't a broken promise
     if row["day"]:
         return row["kind"] == "task" and row["day"] < today.isoformat()
     return row["kind"] == "task" and hangs_days(row, today) >= HOT_AFTER_DAYS
@@ -88,12 +93,18 @@ def when_text(row, today: dt.date | None = None) -> str:
         late = (today - dt.date.fromisoformat(row["day"])).days
         if row["kind"] == "event":
             return "было вчера" if late == 1 else f"было {jokes.plural_days(late)} назад"
-        return "просрочено со вчера" if late == 1 else f"просрочено на {jokes.plural_days(late)}"
+        return _with_repeat(row, "просрочено со вчера" if late == 1 else f"просрочено на {jokes.plural_days(late)}")
     if row["kind"] == "task" and not row["day"]:
         hangs = hangs_days(row, today)
         if hangs >= 2:  # the quiet sarcasm of the list itself
             return f"висит {jokes.plural_days(hangs)}"
-    return parser.human_date(row["day"], row["time"], today, row["end_time"])
+    return _with_repeat(row, parser.human_date(row["day"], row["time"], today, row["end_time"]))
+
+
+def _with_repeat(row, text: str) -> str:
+    if not row["repeat"]:
+        return text
+    return f"{text} · {'каждый год' if row['repeat'] == 'year' else 'каждый месяц'}"
 
 
 def line(row, today: dt.date | None = None) -> str:
@@ -172,20 +183,28 @@ async def add_text_async(uid: int, text: str, forwarded: str = "") -> tuple[list
     return add_parsed(uid, parsed)
 
 
-def add_parsed(uid: int, parsed: list) -> tuple[list, list[Out]]:
+def add_parsed(uid: int, parsed: list, project_id: int | None = None) -> tuple[list, list[Out]]:
+    """Save parsed items. project_id puts every task into that project (the mini-app's «add a step»)."""
     u = db.user(uid)
     p = db.partner(uid)
-    rows, notes = [], []
+    rows, notes, fresh = [], [], []
     for it in parsed:
+        if it.kind == "buy" and (same := db.open_buy(u["couple_id"], it.text)):
+            rows.append(same)  # already on the list: a second «молоко» from either partner is the same milk
+            continue
         assignee = assignee_for(uid, it.who) if it.kind != "buy" else None
-        iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly, it.end)
+        pid = project_id if it.kind == "task" and project_id else (
+            db.project_by_name(u["couple_id"], uid, it.project) if it.kind == "task" and it.project else None)
+        iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly, it.end,
+                          it.repeat, pid)
         rows.append(db.item(iid, u["couple_id"]))
-    if rows:
+        fresh.append(rows[-1])
+    if fresh:
         db.touch(uid)
-    if p:
-        for r in rows:
+    if p:  # the partner hears only about what was really created now
+        for r in fresh:
             notes += assigned_notes(uid, r)
-        buys = [r for r in rows if r["kind"] == "buy"]
+        buys = [r for r in fresh if r["kind"] == "buy"]
         if buys:
             notes.append(Out(p["id"], f"🛒 {esc(u['name'])} добавил(а) в покупки: "
                                       + ", ".join(esc(r["text"]) for r in buys)))
@@ -202,39 +221,89 @@ def assigned_notes(uid: int, row) -> list[Out]:
                          "Отвертеться не выйдет, бот уже запомнил.", item_buttons(row)[:1])]
 
 
+@dataclass
+class Done:
+    ok: bool
+    notes: list[Out]
+    scored: bool = False   # the family's point was counted by this very call
+    toast: str = ""        # the short «Семья 1:0 — Бытовой хаос!» for the one who ticked it
+    score: dict | None = None
+
+
+def _instance(row, today: dt.date) -> str:
+    """Which completion of the item a point is for: a chore's turn, a payment's month, or '' for a one-off task."""
+    if row["weekday"] is not None:
+        return turn_day(row["weekday"], today).isoformat()
+    if row["repeat"] and row["day"]:
+        return row["day"][:7] if row["repeat"].startswith("month:") else row["day"]
+    return ""
+
+
 def done(uid: int, item_id: int) -> tuple[bool, list[Out]]:
-    """Tick an item off; the partner hears about finished chores (that's the fun part)."""
+    d = complete(uid, item_id)
+    return d.ok, d.notes
+
+
+def complete(uid: int, item_id: int) -> Done:
+    """Tick an item off; the partner hears about finished chores, and a task brings the family its point.
+    The point and the messages come only from a change that really happened here (not from a second tap)."""
     u = db.user(uid)
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
     if not row:
-        return False, []
+        return Done(False, [])
     if row["status"] != "open":
-        return True, []  # ticked twice: still done, the partner isn't told again
+        return Done(True, [])  # ticked twice: still done, the partner isn't told again
     chore = row["kind"] == "task" and row["weekday"] is not None
     if chore and chore_done(row):
-        return True, []
-    if not (db.set_chore_done(item_id, u["couple_id"]) if chore else db.set_done(item_id, u["couple_id"])):
-        return False, []
+        return Done(True, [])
+    today = db.local_now().date()
+    instance = _instance(row, today)
+    if row["repeat"] and row["day"]:  # a monthly payment or a birthday: on to its next date
+        ok = db.move_repeat(item_id, u["couple_id"], parser.next_repeat(row["day"], row["repeat"]), done=True)
+    else:
+        ok = db.set_chore_done(item_id, u["couple_id"]) if chore else db.set_done(item_id, u["couple_id"])
+    if not ok:
+        return Done(True, [])  # the partner got there first: done, but not twice
     db.touch(uid)
-    notes = []
+    result = Done(True, [])
+    unlocked = []
+    if row["kind"] == "task":
+        result.scored, unlocked, result.score = game.on_done(u["couple_id"], row, instance, today)
+        if result.scored:
+            result.toast = (f"{jokes.pick(jokes.WIN_DONE, item_id)} "
+                            f"Неделя: {result.score['family']}:{result.score['chaos']}")
     p = db.partner(uid)
     if p and row["kind"] == "task":
         text = jokes.pick(jokes.DONE, item_id).format(who=esc(u["name"]), what=esc(row["text"]))
-        notes.append(Out(p["id"], text))
-    return True, notes
+        if result.scored:
+            text += f"\n{game.score_line(result.score['family'], result.score['chaos'])} на этой неделе."
+        result.notes.append(Out(p["id"], text))
+    for text in unlocked:
+        result.notes += [Out(m["id"], text) for m in db.members(u["couple_id"])]
+    return result
 
 
 def undo_done(uid: int, item_id: int) -> bool:
-    """Put an item ticked off by mistake back on the list (the partner is not told twice)."""
+    """Put an item ticked off by mistake back on the list (the partner is not told twice); its point goes back too."""
     u = db.user(uid)
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
     if not row:
         return False
-    if row["kind"] == "task" and row["weekday"] is not None:  # a weekly chore: only this week's tick goes
+    if row["repeat"] and row["day"]:  # back to the date it was ticked off from
+        back = parser.prev_repeat(row["day"], row["repeat"])
+        instance = back[:7] if row["repeat"].startswith("month:") else back
+        if row["status"] != "open" or not row["done_at"] or not db.move_repeat(item_id, u["couple_id"], back, done=False):
+            return False
+    elif row["kind"] == "task" and row["weekday"] is not None:  # a weekly chore: only this week's tick goes
+        instance = turn_day(row["weekday"], dt.date.fromisoformat(row["done_at"][:10])).isoformat() if row["done_at"] else ""
         if row["status"] != "open" or not row["done_at"] or not db.set_chore_done(item_id, u["couple_id"], done=False):
             return False
-    elif row["status"] != "done" or not db.set_done(item_id, u["couple_id"], done=False):
-        return False
+    else:
+        instance = ""
+        if row["status"] != "done" or not db.set_done(item_id, u["couple_id"], done=False):
+            return False
+    if row["kind"] == "task":
+        game.on_undo(u["couple_id"], item_id, instance)
     db.touch(uid)
     return True
 
@@ -272,6 +341,9 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         return False, "Время без даты не сработает: укажите и дату"
     if not fields:
         return False, "Нечего менять"
+    if row["repeat"] and "day" in fields:  # a payment moved to the 25th repeats on the 25th
+        fields["repeat"] = (f"month:{int(fields['day'][8:])}" if row["repeat"].startswith("month:") else "year") \
+            if fields["day"] else None
     db.update_item(item_id, u["couple_id"], **fields)
     db.touch(uid)
     return True, ""
@@ -289,6 +361,94 @@ def _valid_time(value) -> bool:
         return bool(dt.datetime.strptime(str(value), "%H:%M")) and len(str(value)) == 5
     except ValueError:
         return False
+
+
+# ---------- projects ----------
+
+PROJECT_IDEAS = ("Дом и ремонт", "Отпуск", "Платежи", "Подготовка к празднику")
+
+
+def _couple(uid: int) -> int | None:
+    u = db.user(uid)
+    return u["couple_id"] if u else None
+
+
+def create_project(uid: int, name: str, about: str = "") -> tuple[int | None, str]:
+    """(project id, error). The name is the couple's own: two «Отпуск» would only confuse."""
+    name, about = " ".join(str(name or "").split()), " ".join(str(about or "").split())
+    if not name:
+        return None, "Назовите проект"
+    if len(name) > 60:
+        return None, "Название длиннее 60 знаков"
+    cid = _couple(uid)
+    pid = db.create_project(cid, uid, name, about[:300]) if cid else None
+    if not pid:
+        return None, "Проект с таким названием уже есть"
+    db.touch(uid)
+    return pid, ""
+
+
+def edit_project(uid: int, project_id: int, changes: dict) -> tuple[bool, str]:
+    cid = _couple(uid)
+    if not cid or not db.project(project_id, cid):
+        return False, "Проект не найден"
+    fields = {}
+    if "name" in changes:
+        fields["name"] = " ".join(str(changes["name"] or "").split())
+        if not fields["name"]:
+            return False, "Назовите проект"
+        if len(fields["name"]) > 60:
+            return False, "Название длиннее 60 знаков"
+    if "about" in changes:
+        fields["about"] = " ".join(str(changes["about"] or "").split())[:300]
+    if not fields:
+        return False, "Нечего менять"
+    ok = db.update_project(project_id, cid, **fields)
+    if ok is None:
+        return False, "Проект с таким названием уже есть"
+    db.touch(uid)
+    return True, ""
+
+
+def delete_project(uid: int, project_id: int) -> bool:
+    """The steps stay in «Дела» as ordinary items."""
+    cid = _couple(uid)
+    ok = bool(cid and db.delete_project(project_id, cid))
+    if ok:
+        db.touch(uid)
+    return ok
+
+
+def add_to_project(uid: int, project_id: int, text: str, who: str = "me") -> tuple[list, list[Out], str]:
+    """A step typed inside a project: always a task of that project («купить плитку» is a step here, not
+    a shopping line). Dates and times are read by the same rules as in the chat; who comes from the form."""
+    cid = _couple(uid)
+    if not cid or not db.project(project_id, cid):
+        return [], [], "Проект не найден"
+    text = " ".join(str(text or "").split())[:300]
+    today = db.local_now().date()
+    if not text:
+        return [], [], "Напишите шаг"
+    if parser.intent(text, today) == "chat":
+        return [], [], "Это не похоже на шаг проекта. Напишите, что сделать."
+    parsed = [it for it in parser.rules(text, today, in_project=True) if it.kind == "task"] or \
+        [parser.Parsed("task", text[:1].upper() + text[1:])]
+    for it in parsed:
+        it.who = who if who in ("me", "partner", "both") else "me"
+    rows, notes = add_parsed(uid, parsed, project_id)
+    return rows, notes, ""
+
+
+def move_to_project(uid: int, item_id: int, project_id: int | None) -> bool:
+    """Put a task into a project, or take it out (project_id None). Only tasks belong to projects."""
+    cid = _couple(uid)
+    row = db.item(item_id, cid) if cid else None
+    if not row or row["kind"] != "task" or (project_id is not None and not db.project(project_id, cid)):
+        return False
+    ok = db.set_item_project(item_id, cid, project_id)
+    if ok:
+        db.touch(uid)
+    return ok
 
 
 def reassign(uid: int, item_id: int, who: str) -> bool:
@@ -340,6 +500,13 @@ def morning(today: dt.date) -> list[Out]:
     """Daily digest per person plus nudges about overdue and long-hanging promises."""
     out = []
     t = today.isoformat()
+    week_ahead = (today + dt.timedelta(days=7)).isoformat()
+    try:  # last week's result comes first; a failure here must not cost the digest and the reminders
+        for cid, text in game.close_weeks(today):
+            out += [Out(m["id"], text) for m in db.members(cid)]
+    except Exception:
+        log.exception("closing the weekly matches failed")
+    db.roll_yearly(today)
     for cid in db.couples_with_members():
         people = db.members(cid)
         open_items = db.items(cid)
@@ -351,22 +518,90 @@ def morning(today: dt.date) -> list[Out]:
                 elif (r["kind"] == "task" and r["weekday"] == today.weekday() and not chore_done(r, today)
                       and r["assignee_id"] in (person["id"], None)):
                     lines.append(line(r, today))
+                if r["repeat"] == "year" and r["day"] == week_ahead:
+                    lines.append(f"🎂 Через неделю: {esc(r['text'])} ({parser.human_date(r['day'], today=today)}). "
+                                 "Подарок сам себя не купит.")
             for b in db.busy_on(cid, t):
                 if b["assignee_id"] != person["id"]:
                     lines.append(f"🚫 {esc(name(b['assignee_id']))} сегодня занят(а): {esc(b['text'])}. Совместное не планируй.")
+            deadline = [r for r in open_items if r["kind"] == "task" and r["day"] == t and r["weekday"] is None
+                        and r["assignee_id"] in (person["id"], None)]
+            mode = nudge_mode(person["id"])
+            if deadline and mode in ("humor", "soft"):  # day 0: one line for the deadline day, not a message per task
+                lines.append(jokes.pick(jokes.DUE_TODAY if mode == "humor" else jokes.DUE_TODAY_SOFT, today.toordinal()))
             if lines:
                 out.append(Out(person["id"], "☀️ <b>Сегодня</b>\n" + "\n".join(lines)))
+    out += nudges(today)
+    return out
+
+
+def overdue_stage(days: int) -> int:
+    """Which overdue nudge is due: 0 none yet, 1 on day 2, 2 on day 4, 3 on day 7, then 4, 5, 6… on days 14, 28, 56…"""
+    if days < 2:
+        return 0
+    if days < 4:
+        return 1
+    if days < 7:
+        return 2
+    stage, mark = 3, 14
+    while days >= mark:
+        stage, mark = stage + 1, mark * 2
+    return stage
+
+
+def _nudges_due(today: dt.date) -> list[tuple]:
+    """(row, stage) pairs, the longest-hanging first; stage 0 is the old nudge for an undated promise."""
+    due = []
     for row in db.nudge_candidates(today):
-        db.mark_nudged(row["id"], today)
-        template = jokes.OVERDUE if row["day"] else jokes.NUDGE
-        for uid in _targets(row):
-            out.append(Out(uid, _fmt(template, row, uid, today, row["id"] + row["nudges"]), item_buttons(row)[:1]))
+        since = dt.date.fromisoformat(row["day"] or row["created"][:10])
+        stage = overdue_stage((today - since).days) if row["day"] else 0
+        if row["day"] and stage <= row["nudges"]:
+            continue  # this stage is already sent; after a pause only the latest one goes, never a backlog
+        due.append((since, row["id"], row, stage))
+    return [(row, stage) for _, _, row, stage in sorted(due, key=lambda d: d[:2])]
+
+
+def nudge_mode(uid: int) -> str:
+    u = db.user(uid)
+    return u["nudge_mode"] if u and u["nudge_mode"] in jokes.NUDGE_MODES else "humor"
+
+
+def _nudge_lines(mode: str, stage: int) -> list[str] | None:
+    """What this person gets for this stage; None when their reminder setting skips it."""
+    if stage:
+        return jokes.overdue(stage, mode)
+    return {"humor": jokes.NUDGE, "soft": jokes.OVERDUE_LONG_SOFT[1:]}.get(mode)  # an undated promise hanging
+
+
+def nudges(today: dt.date) -> list[Out]:
+    """Overdue and long-hanging promises, at most config.nudge_limit per person; the rest wait for the next days.
+    Each person's reminder setting (nudge_mode) decides whether and in what tone they hear about it."""
+    out, left, waiting = [], {}, {}
+    for row, stage in _nudges_due(today):
+        targets = [(uid, lines) for uid in _targets(row) if (lines := _nudge_lines(nudge_mode(uid), stage))]
+        if any(left.setdefault(uid, config.nudge_limit) <= 0 for uid, _ in targets):
+            for uid, _ in targets:
+                waiting[uid] = waiting.get(uid, 0) + 1
+            continue  # not marked, so it comes on a quieter morning
+        if not db.mark_nudged(row["id"], today, stage or None):
+            continue  # marked before sending: a re-run or a failed send never repeats the same stage
+        log.info("nudge item %s stage %s to %s", row["id"], stage, [uid for uid, _ in targets] or "nobody (setting)")
+        for uid, lines in targets:
+            left[uid] -= 1
+            out.append(Out(uid, _fmt(lines, row, uid, today, row["id"] + (stage or row["nudges"])), item_buttons(row)[:1]))
+    for uid, n in waiting.items():
+        out.append(Out(uid, f"⌛ В очереди ещё {jokes.plural(n, 'просроченное дело', 'просроченных дела', 'просроченных дел')},"
+                            " о них напомню в другие дни. Весь список: /list"))
     return out
 
 
 def tick(now: dt.datetime) -> list[Out]:
     """Called every minute by the bot."""
     out = due(now)
+    try:  # the live score: a task whose day has passed gives the chaos its point right away
+        game.record_chaos(now.date())
+    except Exception:
+        log.exception("recording the chaos points failed")
     if now.hour >= config.morning_hour and db.kv_get("morning") != now.date().isoformat():
         db.kv_set("morning", now.date().isoformat())
         out += morning(now.date())

@@ -16,6 +16,8 @@ from aiogram.types import (
 )
 
 import db
+import game
+import jokes
 import parser
 import planner
 import stt
@@ -36,8 +38,12 @@ HELP = (
     "• «Купить хлеб, молоко и батарейки» → покупки\n"
     "• «В воскресенье пробежка с 8 до 10» → твоё занятое время\n"
     "• «В воскресенье едем к маме» → общий план, проверю, что никто не занят\n"
+    "• «21-го каждого месяца передать показания» → платёж, после отметки переносится на следующий месяц\n"
+    "• «День рождения мамы 1 февраля» → важная дата, напомню за неделю и в сам день\n"
+    "• «Ремонт кухни: купить плитку, вызвать мастера» → проект со списком шагов\n"
     "Можно переслать сообщение из вашей переписки: «сделай, пожалуйста…» тоже пойму.\n\n"
-    "Напоминаю с юмором. Обижаться можно, отменять напоминание — нет."
+    "Каждое сделанное дело — очко семье в общем матче против бытового хаоса: /season.\n"
+    "Напоминаю с юмором; тон и частоту можно поменять: /reminders."
 )
 
 
@@ -126,8 +132,27 @@ async def start(msg: Message, command: CommandObject, bot: Bot) -> None:
     pair = f"Вы в паре с {esc(partner['name'])}." if partner else (
         "Начать можно и одному, но делить дела удобнее вдвоём. Перешли второй половине эту ссылку:\n"
         f"{await invite_link(bot, uid)}\n{INVITE_RULES}")
-    await msg.answer(f"Привет! Я {esc(config.brand)}: планер для пары. Помогаю делить домашние дела, покупки и планы, чтобы ничего не терялось и никто не тянул всё на себе.\n\n"
+    await msg.answer(f"Привет! Я «{esc(config.brand)}», планер для пары. {esc(config.slogan)}\n\nПомогаю делить домашние дела, покупки и планы, чтобы ничего не терялось и никто не тянул всё на себе.\n\n"
                      f"{pair}\n\n{HELP}", reply_markup=menu(), disable_web_page_preview=True)
+
+
+@router.message(Command("projects"))
+async def projects_list(msg: Message) -> None:
+    u = _user(msg)
+    if not u:
+        return
+    projects = db.projects(u["couple_id"])
+    if not projects:
+        await msg.answer("Проектов пока нет. Напиши, например: «Отпуск: купить билеты, оформить страховку», "
+                         "или создай проект в мини-приложении.", reply_markup=menu())
+        return
+    today = db.local_now().date()
+    parts = []
+    for pr in projects:
+        steps = [r for r in db.project_items(pr["id"], u["couple_id"]) if r["status"] == "open"]
+        head = f"<b>📁 {esc(pr['name'])}</b> · {pr['done']} из {pr['total']}"
+        parts.append("\n".join([head] + [planner.line(r, today) for r in steps[:10]]))
+    await msg.answer("\n\n".join(parts), reply_markup=menu())
 
 
 @router.message(Command("help"))
@@ -166,6 +191,7 @@ async def tasks(msg: Message) -> None:
     u = _user(msg)
     if not u:
         return
+    db.roll_yearly(db.local_now().date())
     rows = [r for r in db.items(u["couple_id"]) if r["kind"] in ("task", "event")]
     if not rows:
         await msg.answer("Дел нет. Подозрительно. Наговори голосом, что обещали на этой неделе.")
@@ -175,15 +201,19 @@ async def tasks(msg: Message) -> None:
     hot = [r for r in rows if planner.is_hot(r, today)]
     hot_ids = {r["id"] for r in hot}
     chores = [r for r in rows if r["weekday"] is not None and r["id"] not in hot_ids]
-    cold = [r for r in rows if r["id"] not in hot_ids and r["weekday"] is None]
+    in_project = [r for r in rows if r["project_id"] and r["id"] not in hot_ids]
+    cold = [r for r in rows if r["id"] not in hot_ids and r["weekday"] is None and not r["project_id"]]
+    projects = db.projects(u["couple_id"])
     parts = [
         _section("🔥 ГОРИТ", hot, today),
         _section("Твои", [r for r in cold if r["assignee_id"] == u["id"]], today),
         _section(f"Дела: {esc(p['name'])}" if p else "Партнёра", [r for r in cold if p and r["assignee_id"] == p["id"]], today),
         _section("Общие", [r for r in cold if r["assignee_id"] is None], today),
         _section("🏠 Обязанности по дому", chores, today),
+        *[_section(f"📁 {esc(pr['name'])} · {pr['done']} из {pr['total']}",
+                   [r for r in in_project if r["project_id"] == pr["id"]], today) for pr in projects],
     ]
-    todo = hot + cold + [r for r in chores if not planner.chore_done(r, today)]
+    todo = hot + cold + [r for r in chores if not planner.chore_done(r, today)] + in_project
     buttons = [[(f"✅ {r['text'][:28]}", f"done:{r['id']}")] for r in todo[:15]]
     await msg.answer("\n\n".join(x for x in parts if x), reply_markup=kb(buttons))
 
@@ -257,21 +287,24 @@ async def _reply_added(msg: Message, bot: Bot, text: str, forwarded: str = "") -
         await msg.answer(f"«{esc(text[:100])}» — это что?", reply_markup=kb([[("📝 Дело", "force:task"), ("🛒 Покупка", "force:buy")],
                                                                              [("Ничего, просто так", "force:no")]]))
         return
+    before = db.last_item_id()
     rows, notes = await planner.add_text_async(u["id"], text, forwarded)
     if not rows:
         await msg.answer("Не понял, что записать. Скажи проще: что сделать и когда.")
         return
-    await _confirm(msg, u, rows, notes, bot)
+    await _confirm(msg, u, rows, notes, bot, before)
 
 
-async def _confirm(msg: Message, u, rows, notes, bot: Bot) -> None:
+async def _confirm(msg: Message, u, rows, notes, bot: Bot, before: int = 0) -> None:
     today = db.local_now().date()
     for r in rows:
         warn = planner.warnings(r)
-        text = "Записал: " + planner.line(r, today) + ("\n\n" + "\n".join(warn) if warn else "")
+        text = ("Уже в списке: " if r["id"] <= before else "Записал: ") + planner.line(r, today) + ("\n\n" + "\n".join(warn) if warn else "")
         await msg.answer(text, reply_markup=kb(planner.item_buttons(r)))
-    if not db.partner(u["id"]):
-        notes.append(Out(u["id"], "💡 Партнёр ещё не подключён, так что напоминать пока некому, кроме тебя. Нажми «💌 Позвать пару»."))
+    if not db.partner(u["id"]) and not db.kv_get(f"solo_hint:{u['id']}"):
+        # Once, not after every phrase: planning alone is allowed, the invite is a suggestion.
+        db.kv_set(f"solo_hint:{u['id']}", "1")
+        notes.append(Out(u["id"], "💡 Пока планер только твой. Когда захочешь делить дела вдвоём, нажми «💌 Позвать пару»."))
     await send(bot, notes)
 
 
@@ -326,14 +359,73 @@ async def text(msg: Message, bot: Bot) -> None:
 
 @router.callback_query(F.data.startswith("done:"))
 async def cb_done(cb: CallbackQuery, bot: Bot) -> None:
-    ok, notes = planner.done(cb.from_user.id, int(cb.data.split(":")[1]))
-    await cb.answer("Готово! Партнёр узнает 😏" if ok else "Уже сделано или удалено")
-    if ok and cb.message:
+    d = planner.complete(cb.from_user.id, int(cb.data.split(":")[1]))
+    await cb.answer(d.toast or ("Готово!" if d.ok else "Уже сделано или удалено"))
+    if d.ok and cb.message:
+        mark = f"✅ Сделано · {esc(d.toast)}" if d.toast else "✅ Сделано"
         try:
-            await cb.message.edit_text(cb.message.html_text + "\n\n✅ Сделано", reply_markup=None)
+            await cb.message.edit_text(cb.message.html_text + "\n\n" + mark, reply_markup=None)
         except Exception:
             pass
-    await send(bot, notes)
+    await send(bot, d.notes)
+
+
+RESULT_NAMES = {"family": "победа семьи", "chaos": "победа хаоса", "draw": "ничья"}
+
+
+def season_text(couple_id: int) -> str:
+    """The same numbers as the mini-app's «Наш сезон»: both read game.season."""
+    s = game.season(couple_id, db.local_now().date())
+    cur = s["current"]
+    lines = ["<b>🏆 Наш сезон: Семья против бытового хаоса</b>",
+             f"Неделя {cur['label']}: <b>{game.score_line(cur['family'], cur['chaos'])}</b>", cur["status"]]
+    if s["last"]:
+        last = s["last"]
+        lines.append(f"Прошлый матч ({last['label']}): {last['family']}:{last['chaos']}, {RESULT_NAMES[last['result']]}.")
+    got = [a for a in s["achievements"] if a["unlocked"]]
+    lines.append("\n<b>Достижения</b>: " + (", ".join(f"{a['icon']} {a['title']}" for a in got) if got
+                                         else "пока нет. Первое — за первое сделанное дело."))
+    lines.append("\n" + "\n".join(f"• {r}" for r in s["rules"]))
+    return "\n".join(lines)
+
+
+@router.message(Command("season"))
+async def season(msg: Message) -> None:
+    await msg.answer(season_text(_user(msg)["couple_id"]))
+
+
+def _modes_kb(current: str):
+    return kb([[((("● " if m == current else "") + jokes.NUDGE_MODE_NAMES[m]), f"nmode:{m}")
+                for m in jokes.NUDGE_MODES[:2]],
+               [((("● " if m == current else "") + jokes.NUDGE_MODE_NAMES[m]), f"nmode:{m}")
+                for m in jokes.NUDGE_MODES[2:]]])
+
+
+MODES_ABOUT = ("Напоминания о просроченных делах:\n"
+               "• С юмором — на 2, 4 и 7-й день после срока, дальше всё реже;\n"
+               "• Мягко — то же, но без сарказма;\n"
+               "• Минимум — только на 2-й и 7-й день;\n"
+               "• Выключены — не пишу о просрочке. Напоминания на время, которое вы сами поставили, приходят всегда.")
+
+
+@router.message(Command("reminders"))
+async def reminders(msg: Message) -> None:
+    u = _user(msg)
+    await msg.answer(MODES_ABOUT, reply_markup=_modes_kb(planner.nudge_mode(u["id"])))
+
+
+@router.callback_query(F.data.startswith("nmode:"))
+async def cb_mode(cb: CallbackQuery) -> None:
+    mode = cb.data.split(":")[1]
+    if mode not in jokes.NUDGE_MODES or not db.set_nudge_mode(cb.from_user.id, mode):
+        await cb.answer("Не получилось")
+        return
+    await cb.answer(f"Напоминания: {jokes.NUDGE_MODE_NAMES[mode]}")
+    if cb.message:
+        try:
+            await cb.message.edit_reply_markup(reply_markup=_modes_kb(mode))
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("force:"))

@@ -11,7 +11,8 @@ def env(name: str, default: str = "") -> str:
 class Config:
     # Pasted from a phone the token often brings a stray space or line break along; the token itself has none.
     bot_token: str = "".join(os.environ.get("BOT_TOKEN", "").split())
-    brand: str = env("BRAND", "Обещал — сделал")
+    brand: str = env("BRAND", "Договорились")
+    slogan: str = env("SLOGAN", "Меньше бытового хаоса. Больше времени вместе.")
     data_dir: Path = Path(env("DATA_DIR", "/data"))
     timezone: str = env("TZ_NAME", "Europe/Moscow")
     # Yandex AI Studio: the text model turns a phrase into tasks, SpeechKit turns a voice message into text.
@@ -24,6 +25,8 @@ class Config:
     # A promise without a date gets its first nudge after this many days, then again every NUDGE_EVERY days.
     nudge_after_days: int = int(env("NUDGE_AFTER_DAYS", "3") or 3)
     nudge_every_days: int = int(env("NUDGE_EVERY_DAYS", "3") or 3)
+    # At most this many nudges per person per morning; the rest wait for the next days.
+    nudge_limit: int = int(env("NUDGE_LIMIT", "3") or 3)
     # Public HTTPS address of this app on the hosting, e.g. https://family-user.amvera.io — turns on the mini-app.
     webapp_url: str = env("WEBAPP_URL", "").rstrip("/")
     port: int = int(env("PORT", "80") or 80)

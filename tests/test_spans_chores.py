@@ -135,6 +135,7 @@ def test_chore_done_stays_for_next_week(couple, clock):
     clock["now"] = tue
     assert planner.when_text(db.item(row["id"], couple), tue.date()) == "сегодня, каждый вторник"
     ok, notes = planner.done(2, row["id"])
+    notes = [n for n in notes if not n.text.startswith("🏅")]  # the family's first achievement goes to both
     assert ok and len(notes) == 1 and notes[0].chat_id == 1  # Маша hears the trash is out
     assert planner.done(2, row["id"]) == (True, [])  # a second tick this week tells nobody again
     row = db.item(row["id"], couple)

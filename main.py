@@ -44,6 +44,9 @@ async def main() -> None:
     await bot.set_my_commands([
         BotCommand(command="list", description="Дела"),
         BotCommand(command="buy", description="Покупки"),
+        BotCommand(command="projects", description="Проекты"),
+        BotCommand(command="season", description="Счёт: семья против хаоса"),
+        BotCommand(command="reminders", description="Тон напоминаний"),
         BotCommand(command="busy", description="Занятые дни"),
         BotCommand(command="invite", description="Позвать пару"),
         BotCommand(command="help", description="Как пользоваться"),
