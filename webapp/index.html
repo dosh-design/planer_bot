@@ -6,11 +6,11 @@
 <title>Обещал — сделал</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F5F0E8; --paper:#FFFDF9; --ink:#2A2521; --muted:#8B8178; --line:#E6DDD1;
-  --accent:#9C4A2A; --accent-soft:#F1E3D8; --olive:#5F6B4E; --olive-soft:#E7EADF;
+  --bg:#F8F2EA; --paper:#FFFDFA; --ink:#2A2521; --muted:#8B8178; --line:#E6DDD1;
+  --accent:#C4623A; --accent-soft:#F8E4D8; --peach1:#FBE3D2; --peach2:#F8EEDF; --olive:#5F6B4E; --olive-soft:#E7EADF;
   --plum:#6E4A5E; --plum-soft:#EFE5EA; --slate:#4F6475; --slate-soft:#E3E9EE;
   --hot:#C0392B; --hot-soft:#FBEAE7; --hot-glow:rgba(192,57,43,.16);
   --shadow:0 1px 2px rgba(60,40,20,.05), 0 8px 24px rgba(60,40,20,.05);
@@ -18,55 +18,55 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#181512; --paper:#221E1A; --ink:#EDE6DD; --muted:#9A8F84; --line:#352F29;
-    --accent:#D08A63; --accent-soft:#3A2A20; --olive:#A3B08C; --olive-soft:#2A2E22;
+    --accent:#E08A62; --accent-soft:#3A2A20; --peach1:#3A281E; --peach2:#2C241D; --olive:#A3B08C; --olive-soft:#2A2E22;
     --plum:#C99BB3; --plum-soft:#35262E; --slate:#95ADC0; --slate-soft:#232C33;
     --hot:#F0645A; --hot-soft:#3A1D1A; --hot-glow:rgba(240,100,90,.22); --shadow:none;
   }
 }
 :root[data-theme="dark"]{
   --bg:#181512; --paper:#221E1A; --ink:#EDE6DD; --muted:#9A8F84; --line:#352F29;
-  --accent:#D08A63; --accent-soft:#3A2A20; --olive:#A3B08C; --olive-soft:#2A2E22;
+  --accent:#E08A62; --accent-soft:#3A2A20; --peach1:#3A281E; --peach2:#2C241D; --olive:#A3B08C; --olive-soft:#2A2E22;
   --plum:#C99BB3; --plum-soft:#35262E; --slate:#95ADC0; --slate-soft:#232C33;
   --hot:#F0645A; --hot-soft:#3A1D1A; --hot-glow:rgba(240,100,90,.22); --shadow:none;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 Inter,system-ui,sans-serif;padding:0 20px 130px}
 button{font-family:inherit}
-.serif{font-family:Lora,Georgia,serif}
+.serif{font-family:Nunito,Inter,sans-serif}
 
-header{padding:26px 0 6px}
-.date{font-size:12px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
-.hello{font-family:Lora,Georgia,serif;font-weight:500;font-size:30px;line-height:1.15;margin:8px 0 14px;letter-spacing:-.3px}
+header{margin:16px 0 4px;padding:20px 18px 18px;border-radius:24px;background:linear-gradient(140deg,var(--peach1),var(--peach2));box-shadow:var(--shadow)}
+.date{font-size:13px;font-weight:600;color:var(--accent)}
+.hello{font-family:Nunito,Inter,sans-serif;font-weight:800;font-size:27px;line-height:1.15;margin:6px 0 12px;letter-spacing:-.2px}
 .pair{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
 .avas{display:flex}
-.ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;color:var(--paper);border:2px solid var(--bg)}
+.ava{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;color:var(--paper);border:2px solid var(--peach2)}
 .ava.me{background:var(--accent)}
 .ava.you{background:var(--olive);margin-left:-8px}
 .ava.wait{background:var(--line);color:var(--muted);margin-left:-8px}
-.oldest{margin:18px 0 0;padding:12px 14px;border-radius:12px;background:var(--paper);border:1px solid var(--line);font-size:14px}
+.oldest{margin:16px 0 0;padding:12px 14px;border-radius:16px;background:var(--paper);font-size:14px}
 .oldest b{font-weight:600}
-.oldest.alarm{background:var(--hot-soft);border:1px solid var(--hot);border-left:4px solid var(--hot);color:var(--ink)}
+.oldest.alarm{background:var(--paper);border:1.5px solid var(--hot);color:var(--ink)}
 .oldest.alarm .lbl{color:var(--hot);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:12px;display:block;margin-bottom:2px}
 
 .invite{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px 0;display:flex;gap:12px;align-items:center}
 .invite p{margin:0;flex:1;font-size:14px;color:var(--muted)}
-.btn{border:0;border-radius:10px;background:var(--ink);color:var(--paper);font-weight:600;font-size:14px;padding:10px 16px;cursor:pointer}
+.btn{border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;padding:10px 16px;cursor:pointer}
 
-.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:18px 0 4px;position:sticky;top:0;z-index:2;background:var(--bg);padding-top:8px}
-.tabs button{border:0;background:none;color:var(--muted);font-weight:600;font-size:15px;padding:8px 0 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
-.tabs button.on{color:var(--ink);border-color:var(--ink)}
+.tabs{display:flex;gap:4px;background:var(--line);padding:4px;border-radius:16px;margin:16px 0 4px;position:sticky;top:8px;z-index:2}
+.tabs button{flex:1;border:0;background:none;color:var(--muted);font-weight:600;font-size:14px;padding:9px 4px;cursor:pointer;border-radius:12px}
+.tabs button.on{color:var(--ink);background:var(--paper);box-shadow:0 1px 3px rgba(60,40,20,.1)}
 .tabs b{font-weight:600;color:var(--muted);margin-left:5px;font-size:13px}
 .tabs b.hot{color:#fff;background:var(--hot);border-radius:9px;padding:1px 7px}
 .tabs b:empty{display:none}
 
-h3{display:flex;align-items:baseline;gap:8px;font-family:Lora,Georgia,serif;font-weight:600;font-size:17px;margin:24px 2px 10px}
+h3{display:flex;align-items:baseline;gap:8px;font-family:Nunito,Inter,sans-serif;font-weight:800;font-size:17px;margin:22px 2px 10px}
 h3 small{font-family:Inter,sans-serif;font-weight:500;color:var(--muted);font-size:13px}
 h3.hot{color:var(--hot)}
 
-.item{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 14px 14px 16px;margin-bottom:8px;display:flex;gap:14px;align-items:center;
+.item{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:12px 14px 12px 12px;margin-bottom:8px;display:flex;gap:14px;align-items:center;
   box-shadow:var(--shadow);transition:opacity .3s,transform .3s;cursor:pointer;position:relative;overflow:hidden}
-.item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kind)}
-.k-task{--kind:var(--accent)} .k-event{--kind:var(--plum)} .k-buy{--kind:var(--olive)} .k-busy{--kind:var(--slate)}
+.blob{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:20px;flex:none;background:var(--kind-soft)}
+.k-task{--kind-soft:var(--accent-soft)} .k-event{--kind-soft:var(--plum-soft)} .k-buy{--kind-soft:var(--olive-soft)} .k-busy{--kind-soft:var(--slate-soft)}
 .item.gone{opacity:0;transform:translateX(24px)}
 .body{flex:1;min-width:0}
 .text{font-weight:500;font-size:16px;word-wrap:break-word;line-height:1.3}
@@ -77,7 +77,7 @@ h3.hot{color:var(--hot)}
 .meta .late{color:var(--hot);font-weight:700}
 .warn{font-size:13px;color:var(--plum);margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--plum-soft)}
 .item.hot{background:var(--hot-soft);border-color:var(--hot);animation:alarm 2s ease-in-out infinite}
-.item.hot::before{width:5px;background:var(--hot)}
+.item.hot .blob{background:var(--paper)}
 .item.hot .text{color:var(--hot);font-weight:600}
 .item.hot .check{border-color:var(--hot)}
 @keyframes alarm{0%,100%{box-shadow:0 0 0 0 var(--hot-glow)}50%{box-shadow:0 0 0 6px var(--hot-glow)}}
@@ -87,20 +87,20 @@ h3.hot{color:var(--hot)}
 .item.done .check{background:var(--olive);border-color:var(--olive);color:var(--paper)}
 
 .empty{text-align:center;color:var(--muted);padding:44px 24px}
-.empty .t{font-family:Lora,Georgia,serif;font-size:19px;color:var(--ink);margin-bottom:6px}
+.empty .t{font-family:Nunito,Inter,sans-serif;font-size:19px;color:var(--ink);margin-bottom:6px}
 
 .composer{position:fixed;left:0;right:0;bottom:0;padding:12px 20px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 35%)}
-.composer form{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:14px;padding:6px 6px 6px 16px;border:1px solid var(--line);box-shadow:0 6px 24px rgba(60,40,20,.08)}
+.composer form{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:20px;padding:6px 6px 6px 16px;border:1px solid var(--line);box-shadow:0 6px 24px rgba(60,40,20,.08)}
 .composer input{flex:1;border:0;background:none;color:var(--ink);font:400 15px Inter,sans-serif;outline:none;min-width:0}
 .composer input::placeholder{color:var(--muted)}
-.composer .btn{width:40px;height:40px;padding:0;font-size:22px;line-height:1;font-weight:400}
+.composer .btn{width:42px;height:42px;border-radius:50%;padding:0;font-size:22px;line-height:1;font-weight:400}
 .composer .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:7px}
 
 .sheet{position:fixed;inset:0;background:rgba(20,15,10,.4);display:none;align-items:flex-end;z-index:5}
 .sheet.on{display:flex}
 .sheet > div{background:var(--paper);width:100%;border-radius:18px 18px 0 0;padding:10px 20px calc(18px + env(safe-area-inset-bottom))}
 .sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
-.sheet .title{font-family:Lora,Georgia,serif;font-weight:600;font-size:19px;margin:0 0 6px}
+.sheet .title{font-family:Nunito,Inter,sans-serif;font-weight:600;font-size:19px;margin:0 0 6px}
 .sheet button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);font-weight:500;font-size:16px;padding:14px 2px;border-bottom:1px solid var(--line);cursor:pointer}
 .sheet button:last-child{border:0;color:var(--muted);text-align:center}
 .sheet button.red{color:var(--hot)}
@@ -139,6 +139,19 @@ if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("bg_color"); } catch(
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// A homely picture for each line: by words in the text, else by kind.
+const PICS = [
+  [/корм/,"🐾"],[/лампоч|свет|люстр/,"💡"],[/кот|кош/,"🐈"],[/собак|пес|выгул/,"🐕"],[/полк|повес|дрел|сверл|шуруп/,"🪚"],
+  [/кран|сантех|труб|смесит/,"🚰"],[/мусор/,"🗑"],[/посуд/,"🍽"],[/стир|белье/,"🧺"],[/убор|пылесос|пол\b|окн/,"🧽"],
+  [/мам|родител|дач/,"🏡"],[/кино|фильм/,"🍿"],[/ресторан|ужин|кафе/,"🍷"],[/день рожд|годовщин|подар/,"🎁"],
+  [/врач|ветеринар|больниц|анализ/,"🩺"],[/машин|шин|авто|сто\b/,"🚗"],[/оплат|счет|квартплат|интернет/,"💳"],
+  [/футбол/,"⚽"],[/хоккей/,"🏒"],[/бан[яеию]|сауна/,"🧖"],[/рыбал/,"🎣"],[/маникюр|ногт/,"💅"],[/йог|пилатес|зал|трениров/,"🧘"],
+  [/молок|кефир|сыр|йогурт/,"🥛"],[/хлеб|батон/,"🍞"],[/батарейк/,"🔋"],[/яйц/,"🥚"],[/фрукт|яблок|банан/,"🍎"],
+  [/овощ|картош|морков|помидор/,"🥕"],[/мяс|куриц|фарш/,"🍗"],[/кофе|чай/,"☕"],[/пиво|вино/,"🍷"],[/порош|мыл|шампун|бумаг/,"🧴"],
+];
+const KIND_PIC = {task:"🔧", event:"💞", buy:"🛍", busy:"🗓"};
+const pic = it => (PICS.find(([re]) => re.test(it.text.toLowerCase())) || [0, KIND_PIC[it.kind]])[1];
 
 function demoState(){
   return {brand:"Обещал — сделал", me:{id:1,name:"Маша"}, partner:{id:2,name:"Дима"}, invite:"", items:[
@@ -198,7 +211,7 @@ function itemHtml(it){
   if (it.when) chips.push(`<span class="${it.hot ? "late" : it.when.startsWith("висит") ? "hang" : "when"}">${esc(it.when)}</span>`);
   const warn = (it.warnings || []).map(w => `<div class="warn">${esc(w)}</div>`).join("");
   const check = it.kind === "busy" ? "" : `<button class="check" data-done="${it.id}" aria-label="Сделано">✓</button>`;
-  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}">
+  return `<div class="item k-${it.kind}${it.hot ? " hot" : ""}" id="i${it.id}" data-more="${it.id}"><div class="blob">${pic(it)}</div>
     <div class="body"><div class="text">${esc(it.text)}</div>${chips.length ? `<div class="meta">${chips.join("")}</div>` : ""}${warn}</div>${check}</div>`;
 }
 
@@ -213,7 +226,7 @@ function render(){
   $("date").textContent = new Date().toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"});
   $("hello").textContent = `${greeting()}, ${me.name}`;
   $("pair").innerHTML = `<span class="avas"><span class="ava me">${initial(me.name)}</span>` +
-    (p ? `<span class="ava you">${initial(p.name)}</span></span><span>${esc(me.name)} и ${esc(p.name)}</span>`
+    (p ? `<span class="ava you">${initial(p.name)}</span></span><span>${esc(me.name)} <span style="color:var(--accent)">♥</span> ${esc(p.name)}</span>`
        : `<span class="ava wait">?</span></span><span>ждём вторую половину</span>`);
   const hot = S.items.filter(i => i.hot);
   const hanging = S.items.filter(i => i.kind === "task" && /^висит/.test(i.when || ""))
