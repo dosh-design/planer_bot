@@ -65,7 +65,8 @@ html,body{height:100%;overflow:hidden}
 body{margin:0;background:var(--bg);color:var(--text);font:var(--t-body)}
 /* App shell: the list scrolls in its own area and the composer sits BELOW it, not on top of it.
    Height follows the visible viewport (keyboard, Telegram's expand), see fit() in the script. */
-.app{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-h,100%);display:flex;flex-direction:column}
+.app{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-h,100%);display:flex;flex-direction:column;
+  padding-top:var(--inset-top,0px)}  /* full screen in Telegram: room for the status bar and Telegram's own buttons */
 .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding:0 var(--s4) var(--s3)}
 button{font:inherit;color:inherit}
@@ -81,13 +82,15 @@ button{font:inherit;color:inherit}
 .mark .ic{width:21px;height:21px;stroke-width:2.1}
 .title-block{flex:1;min-width:0}
 h1{font:800 21px/1.15 var(--font);letter-spacing:-.4px;margin:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+h1.solo{white-space:normal;font-size:19px;overflow-wrap:anywhere}
 .date{font:var(--t-caption);color:var(--text-2);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .date::first-letter{text-transform:uppercase}
 .pair{display:flex;align-items:center;flex:none}
 .ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:800 13px/1 var(--font);
   color:#fff;border:2px solid var(--bg);background:var(--brand-fill);flex:none}
 .pair .ava + .ava{margin-left:-9px;background:var(--success)}
-.ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control)}
+.ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control);padding:0;cursor:pointer}
+.ava.wait .ic{width:16px;height:16px;stroke-width:2}
 
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2);margin-top:var(--s3)}
 .stat{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px;padding:0 var(--s3);border-radius:var(--r-m);
@@ -193,10 +196,12 @@ main{animation:in var(--base) var(--ease)}
 .cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--s2) var(--s2) var(--s3);margin-top:var(--s3);box-shadow:var(--shadow-1)}
 .cal-head{display:flex;align-items:center;gap:var(--s1);padding:0 0 var(--s2)}
 .cal-head .nav{width:44px;height:44px;border:0;border-radius:12px;background:none;color:var(--text-2);display:grid;place-items:center;cursor:pointer}
-.cal-title{flex:1;min-width:0;border:0;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:12px}
-.cal-title b{font:800 16px/1 var(--font);text-transform:capitalize;white-space:nowrap}
-.cal-title span{display:flex;align-items:center;gap:2px;font:700 12px/1 var(--font);color:var(--text);background:var(--brand-soft);border-radius:var(--r-full);padding:5px 8px}
-.cal-title .ic{width:14px;height:14px;stroke-width:2.2}
+.cal-title{flex:1;min-width:0;text-align:center;font:800 16px/1.2 var(--font);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cal-title::first-letter{text-transform:uppercase}
+/* the switch shows the mode that IS on, both options visible */
+.cal-mode{display:flex;gap:2px;padding:3px;margin:0 auto var(--s2);width:max-content;background:var(--surface-2);border-radius:var(--r-full)}
+.cal-mode button{border:0;background:none;color:var(--text-2);font:700 13px/1 var(--font);min-height:36px;min-width:84px;padding:0 var(--s3);border-radius:var(--r-full);cursor:pointer}
+.cal-mode button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
 .cal-wd{text-align:center;font:var(--t-micro);color:var(--text-2);padding:2px 0 6px;text-transform:uppercase;letter-spacing:.4px}
 .cal-wd.we{color:var(--brand-ink)}
@@ -221,6 +226,16 @@ main{animation:in var(--base) var(--ease)}
 .state.err .badge{background:var(--danger-soft);color:var(--danger-ink)}
 .state h3{font:800 17px/1.3 var(--font);margin:0 0 6px}
 .state p{margin:0 auto;max-width:300px;font:500 14px/1.45 var(--font);color:var(--text-2)}
+/* first run: a warm picture, one main action and three ideas that only fill the field */
+.welcome{text-align:center;padding:var(--s5) var(--s4) var(--s4);margin-top:var(--s4);border-radius:var(--r-xl);
+  background:linear-gradient(180deg,var(--brand-soft),var(--surface) 70%);border:1px solid var(--border)}
+.welcome .hero{width:min(220px,70%);height:auto;display:block;margin:0 auto var(--s2)}
+.welcome h3{font:800 19px/1.25 var(--font);margin:0 0 6px}
+.welcome p{margin:0 auto var(--s4);max-width:300px;font:500 14px/1.45 var(--font);color:var(--text-2)}
+.ideas{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--s2);margin-top:var(--s4)}
+.ideas small{width:100%;font:var(--t-caption);color:var(--text-2)}
+.ideas button{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:var(--r-full);
+  font:600 14px/1.2 var(--font);min-height:40px;padding:0 var(--s3);cursor:pointer;max-width:100%}
 .state .btn{margin-top:var(--s4)}
 .state.small{padding:var(--s5) var(--s4);margin-top:0}
 .skel{height:68px;border-radius:var(--r-l);background:var(--surface);border:1px solid var(--border);margin-bottom:var(--s2);position:relative;overflow:hidden}
@@ -229,7 +244,7 @@ main{animation:in var(--base) var(--ease)}
 @keyframes shim{to{transform:translateX(100%)}}
 
 /* ============ composer: a block under the list, never over it ============ */
-.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), env(safe-area-inset-bottom));background:var(--bg);
+.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), env(safe-area-inset-bottom), var(--inset-bottom,0px));background:var(--bg);
   border-top:1px solid var(--border)}
 .kb-open .composer{padding-bottom:var(--s2)}  /* the home-indicator inset sits under the keyboard */
 .composer form{display:flex;gap:var(--s2);align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
@@ -284,7 +299,8 @@ main{animation:in var(--base) var(--ease)}
 .edit input{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
   min-height:44px;padding:0 var(--s3);width:100%;min-width:0;color-scheme:light dark}
 .edit input:focus{outline:none;border-color:var(--brand)}
-.edit .row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:var(--s2)}
+.edit .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
+.edit .row label:first-child{grid-column:1/-1}
 .edit .err{font:var(--t-caption);color:var(--danger-ink);min-height:0}
 .edit .err:empty{display:none}
 .edit .btn{width:100%}
@@ -310,6 +326,7 @@ main{animation:in var(--base) var(--ease)}
   <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c1.4-3.6 4.4-5 7.5-5s6.1 1.4 7.5 5"/></symbol>
+  <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M3 20c1.3-3.6 4-5 7-5 1.6 0 3.1.4 4.3 1.2M18 14v6M15 17h6"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.8 19.5c1-3.3 3.4-4.6 6.2-4.6s5.2 1.3 6.2 4.6"/><path d="M15.5 5.3a3.3 3.3 0 0 1 0 6.4M17.5 15.2c1.8.5 3.1 1.8 3.7 4.3"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
@@ -319,6 +336,7 @@ main{animation:in var(--base) var(--ease)}
   <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 4.5 4.5 5.5 4.5 8.5s-4.5 4-4.5 8.5M16.5 3.5c0 4.5-4.5 5.5-4.5 8.5s4.5 4 4.5 8.5"/></symbol>
   <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 8.5a14 14 0 0 1 19 0M5.5 12a9.5 9.5 0 0 1 13 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01M3 3l18 18"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
   <symbol id="i-sofa" viewBox="0 0 24 24"><path d="M5 11V8.5A2.5 2.5 0 0 1 7.5 6h9A2.5 2.5 0 0 1 19 8.5V11"/><path d="M3 12.5a2 2 0 0 1 4 0V14h10v-1.5a2 2 0 0 1 4 0V18H3zM5 18v2M19 18v2"/></symbol>
   <!-- what the line is about -->
   <symbol id="p-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></symbol>
@@ -388,6 +406,17 @@ if (tg && initData) {
     try { const bg = getComputedStyle(document.body).backgroundColor; tg.setHeaderColor(bg); tg.setBackgroundColor(bg); tg.setBottomBarColor && tg.setBottomBarColor(bg); } catch(e){}
   };
   theme(); tg.onEvent && tg.onEvent("themeChanged", theme);
+  // On phones the app goes full screen (Telegram 8.0+): no grey system bar with the bot name on top, our own
+  // header instead. Telegram keeps its close and ⋯ buttons, so the content starts below them (safe areas).
+  const insets = () => {
+    const a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {}, root = document.documentElement.style;
+    root.setProperty("--inset-top", (tg.isFullscreen ? (a.top || 0) + (c.top || 0) : 0) + "px");
+    root.setProperty("--inset-bottom", (tg.isFullscreen ? (a.bottom || 0) + (c.bottom || 0) : 0) + "px");
+  };
+  if (tg.onEvent) ["safeAreaChanged", "contentSafeAreaChanged", "fullscreenChanged"].forEach(ev => tg.onEvent(ev, insets));
+  const phone = /^(ios|android)/.test(tg.platform || "");
+  if (phone && tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0")) { try { tg.requestFullscreen(); } catch(e){} }
+  insets();
 }
 
 const $ = id => document.getElementById(id);
@@ -416,6 +445,7 @@ function demoState(){
   const t = new Date(), d = n => { const x = new Date(t); x.setDate(x.getDate() + n); return iso(x); };
   const dm = n => d(n).slice(8, 10) + "." + d(n).slice(5, 7);
   return {brand:"Обещал — сделал", me:{id:1,name:"Лена"}, partner:{id:2,name:"Артём"}, invite:"", items:[
+    {id:21,kind:"task",text:"Вынести мусор",assignee:2,assignee_name:"Артём",author:1,when:"каждый вторник",weekday:1,warnings:[]},
     {id:1,kind:"task",text:"Вкрутить лампочку в ванной",assignee:2,assignee_name:"Артём",author:1,when:"висит 14 дней",hot:true,warnings:[]},
     {id:11,kind:"task",text:"Оплатить интернет",assignee:1,assignee_name:"Лена",author:2,when:"просрочено на 2 дня",day:d(-2),hot:true,warnings:[]},
     {id:2,kind:"task",text:"Записать кота к ветеринару",assignee:1,assignee_name:"Лена",author:2,when:"сегодня в 18:00",day:d(0),warnings:[]},
@@ -467,6 +497,25 @@ function toast(text, mood = "", ms = 4000, action = null){
 }
 
 // ---------- states ----------
+const FIRST = `<button class="btn" data-first="1">Добавить первый план</button>`;
+// A drawing, not data: a lit house under a heart.
+const HERO = `<svg class="hero" viewBox="0 0 220 140" aria-hidden="true">
+  <ellipse cx="110" cy="128" rx="84" ry="8" fill="var(--surface-2)"/>
+  <circle cx="40" cy="34" r="3" fill="var(--warning)"/><circle cx="186" cy="48" r="2.5" fill="var(--warning)"/><circle cx="170" cy="20" r="2" fill="var(--brand)"/>
+  <path d="M110 6c-4-8-17-6-17 4 0 9 17 18 17 18s17-9 17-18c0-10-13-12-17-4z" fill="var(--brand)"/>
+  <path d="M52 70 110 32l58 38" fill="none" stroke="var(--brand-fill)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M64 66h92v58H64z" fill="var(--surface)" stroke="var(--border)" stroke-width="2"/>
+  <rect x="76" y="80" width="24" height="20" rx="4" fill="var(--warning)" opacity=".85"/>
+  <rect x="120" y="80" width="24" height="20" rx="4" fill="var(--warning)" opacity=".55"/>
+  <rect x="98" y="104" width="24" height="20" rx="3" fill="var(--brand-soft)" stroke="var(--brand-fill)" stroke-width="2"/>
+  <path d="m103 114 5 5 9-10" fill="none" stroke="var(--brand-fill)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+const IDEAS = ["По вторникам выносить мусор — на тебе", "Купить молоко и хлеб", "В субботу едем к маме"];
+function welcomeHtml(solo){
+  return `<div class="welcome">${HERO}<h3>${solo ? "Пока здесь свободно" : "Дел нет. Подозрительно уютно"}</h3>
+    <p>${solo ? "Добавь свой план или пригласи партнёра, чтобы планировать вместе." : "Напишите внизу, кто что делает по дому, и бот напомнит."}</p>${FIRST}
+    <div class="ideas"><small>Или начни с примера:</small>${IDEAS.map(t => `<button data-idea="${esc(t)}">${esc(t)}</button>`).join("")}</div></div>`;
+}
 function stateHtml(ic, title, text, action = "", err = false){
   return `<div class="state${err ? " err" : ""}"><div class="badge">${icon(ic)}</div><h3>${title}</h3><p>${text}</p>${action}</div>`;
 }
@@ -501,20 +550,23 @@ const todayIso = () => (S && S.today) || iso(new Date());
 const weekday = dayIso => (new Date(dayIso + "T12:00").getDay() + 6) % 7;
 function onDay(dayIso){
   const wd = weekday(dayIso);
-  return S.items.filter(i => i.kind !== "buy" && (i.day === dayIso || (i.kind === "busy" && i.weekday === wd)));
+  return S.items.filter(i => i.kind !== "buy" && (i.day === dayIso || ((i.kind === "busy" || i.kind === "task") && i.weekday === wd)));
 }
 const shortDate = dayIso => new Date(dayIso + "T12:00").toLocaleDateString("ru-RU", {day:"numeric", month:"short"}).replace(".", "");
 
 function header(){
   const me = S.me, p = S.partner, t = todayIso();
   $("pair").innerHTML = `<span class="ava" title="${esc(me.name)}">${initial(me.name)}</span>` +
-    (p ? `<span class="ava" title="${esc(p.name)}">${initial(p.name)}</span>` : `<span class="ava wait" title="Ждём вторую половину">?</span>`);
+    (p ? `<span class="ava" title="${esc(p.name)}">${initial(p.name)}</span>`
+       : `<button class="ava wait" data-share="1" title="Пригласить партнёра" aria-label="Пригласить партнёра">${icon("i-user-plus")}</button>`);
   const h = new Date().getHours(), hi = h < 5 ? "доброй ночи" : h < 12 ? "доброе утро" : h < 18 ? "добрый день" : "добрый вечер";
   $("date").textContent = new Date(t + "T12:00").toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"}) + " · " + hi;
-  $("hello").textContent = p ? `${me.name} и ${p.name}` : `${me.name}, пока соло`;
+  $("hello").textContent = p ? `${me.name} и ${p.name}` : `${me.name}, начнём с твоих планов?`;
+  $("hello").classList.toggle("solo", !p);
 
   // Counters are label first ("Купить 6"), so no number has to agree with a noun.
-  const today = S.items.filter(i => (i.kind === "task" || i.kind === "event") && i.day === t);
+  const today = S.items.filter(i => (i.kind === "task" || i.kind === "event") && i.day === t
+                                 || (i.kind === "task" && i.weekday === weekday(t) && !i.chore_done));
   const buys = S.items.filter(i => i.kind === "buy");
   const ours = S.items.filter(i => i.kind === "event" && i.day && i.day >= t).sort((a, b) => a.day < b.day ? -1 : 1)[0];
   const hot = S.items.filter(i => i.hot), late = hot.some(isLate);
@@ -526,11 +578,8 @@ function header(){
   if (ours) html += `<button class="plan" data-goto="month" data-day="${ours.day}" aria-label="Ближайший общий план: ${esc(ours.when)}, ${esc(ours.text)}">${icon("i-heart")}<span><small>Вместе: </small><b>${esc(ours.when)}</b> · ${esc(ours.text)}</span>${icon("i-right", "ic go")}</button>`;
   busyToday.forEach(b => { html += `<div class="note">${icon("i-clock")}<span>Сегодня ${esc(b.assignee_name)}: ${esc(b.text.toLowerCase())}. Совместное лучше на другой день.</span></div>`; });
   $("summary").innerHTML = html;
-  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p><b>Позовите вторую половину</b>Без неё напоминать будет некому. Ссылка одноразовая, работает 48 часов.</p><button class="btn" id="share">Позвать</button></div>` : "";
-  if ($("share")) $("share").onclick = () => {
-    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер");
-    tg && initData ? tg.openTelegramLink(url) : window.open(url);
-  };
+  // Inviting is offered, never required: personal plans work without a partner.
+  $("invite").innerHTML = (!p && S.invite) ? `<div class="invite"><p><b>Планировать вдвоём</b>Позови партнёра: будете видеть общие дела и напоминать друг другу. Ссылка одноразовая, действует 48 часов.</p><button class="btn ghost" data-share="1">Пригласить</button></div>` : "";
 }
 
 // ---------- card ----------
@@ -546,6 +595,7 @@ const isLate = it => !!it.hot && !/^висит/.test(it.when || "");
 function dueHtml(it){
   if (!it.when) return "";  // no date: nothing is shown rather than an invented one
   const w = it.when;
+  if (it.weekday != null && it.kind === "task") return `<div class="due${/^сегодня/.test(w) ? " today" : ""}">${icon("i-repeat")}${esc(w)}</div>`;
   if (isLate(it)) return `<div class="due late">${icon("i-flame")}${esc(w)}</div>`;
   if (it.kind === "event" && it.day && it.day < todayIso()) return `<div class="due past">${icon("i-cal")}${esc(w)}</div>`;
   if (it.day === todayIso()) return `<div class="due today">${icon("i-cal")}${esc(w)}</div>`;
@@ -563,7 +613,7 @@ function warnHtml(it){
 function cardHtml(it){
   const tick = it.kind === "busy" ? "" : `<button class="tick" data-done="${it.id}" aria-label="${it.kind === "buy" ? "Куплено" : "Сделано"}: ${esc(it.text)}"><i>${icon("i-check")}</i></button>`;
   const past = it.kind === "event" && it.day && it.day < todayIso();
-  return `<div class="card k-${it.kind}${it.hot ? " hot" : ""}${isLate(it) ? " late" : ""}${past ? " past" : ""}" id="i${it.id}" data-more="${it.id}">
+  return `<div class="card k-${it.kind}${it.chore_done ? " done" : ""}${it.hot ? " hot" : ""}${isLate(it) ? " late" : ""}${past ? " past" : ""}" id="i${it.id}" data-more="${it.id}">
     <span class="tile">${icon(pic(it))}</span>
     <div class="body"><div class="title">${esc(it.text)}</div>${dueHtml(it)}${whoHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
 }
@@ -587,14 +637,16 @@ function render(){
   const items = by(tab);
   let html;
   if (!items.length) {
-    html = {tasks: stateHtml("p-home", "Дел нет. Подозрительно уютно", "Напишите внизу, что обещали друг другу. Например: «ты обещал вкрутить лампочку до субботы»."),
+    html = {tasks: welcomeHtml(!p),
             buy: stateHtml("i-bag", "Список покупок пуст", "Холодильник, видимо, тоже скоро опустеет. Напишите «купить молоко и хлеб», и список появится."),
             busy: stateHtml("i-sofa", "Никто не занят", "Отметьте свои постоянные дела, чтобы вторая половина не планировала на этот вечер совместное. Например: «по четвергам у меня футбол»."),
            }[tab];
   } else if (tab === "tasks") {
     // Order of attention: burning, today, the rest of the promises, then plans ahead.
     const t = todayIso(), cold = items.filter(i => !i.hot);
-    const rest = cold.filter(i => i.day !== t), todo = rest.filter(i => i.kind === "task");
+    const rest = cold.filter(i => i.day !== t), todo = rest.filter(i => i.kind === "task" && i.weekday == null);
+    // Weekly house chores: this week's turn first, the ones already done this week at the end.
+    const chores = rest.filter(i => i.kind === "task" && i.weekday != null).sort((a, b) => (a.chore_done ? 1 : 0) - (b.chore_done ? 1 : 0));
     const ev = rest.filter(i => i.kind === "event"), gone = ev.filter(i => i.day && i.day < t);
     const plans = ev.filter(i => !gone.includes(i)).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
     html = (hot.length ? section("🔥 ГОРИТ", hot, "", "hot", "sec-hot")
@@ -603,6 +655,7 @@ function render(){
          + section("Твои дела", todo.filter(i => i.assignee === me.id), avaFor(me.name, true))
          + (p ? section(`Дела: ${p.name}`, todo.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "")
          + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
+         + section("Обязанности по дому", chores, `<span class="ava both">${icon("i-home")}</span>`, "", "sec-chores")
          + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
          + section("Прошедшие планы", gone, "", "past");
   } else if (tab === "busy") {
@@ -626,11 +679,25 @@ function dayCell(date, t){
   const cls = [key === t ? "today" : "", key === calDay ? "sel" : ""].join(" ");
   return `<button class="cal-day ${cls}" data-day="${key}" aria-label="${label}"${key === calDay ? ' aria-current="date"' : ""}>${date.getDate()}<span class="dots">${dots(list)}</span></button>`;
 }
-// Collapsed: the current week strip. Tap the title to unfold the whole month.
+// Week: one Monday–Sunday strip with its date range. Month: the whole grid. The switch shows which one is on.
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+function weekTitle(mon){
+  const sun = addDays(mon, 6), y = sun.getFullYear();
+  if (mon.getMonth() === sun.getMonth()) return `${mon.getDate()}–${sun.toLocaleDateString("ru-RU", {day:"numeric", month:"long"})} ${y}`;
+  const short = d => d.toLocaleDateString("ru-RU", {day:"numeric", month:"short"}).replace(".", "");
+  return `${short(mon)} – ${short(sun)} ${y}`;
+}
+// After the period changes the selected day follows it: today if it is there, else the first day shown.
+function keepDayInView(){
+  const t = todayIso(), first = calOpen ? calMonth : calWeek;
+  const last = calOpen ? new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0) : addDays(calWeek, 6);
+  const inside = key => key >= iso(first) && key <= iso(last);
+  if (!inside(calDay)) calDay = inside(t) ? t : iso(first);
+}
 function monthHtml(){
   const t = todayIso(), now = new Date(t + "T12:00");
   if (!calDay) calDay = t;
-  if (!calWeek) calWeek = monday(now);
+  if (!calWeek) calWeek = monday(new Date(calDay + "T12:00"));
   if (!calMonth) calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   let cells = WD.map((w, i) => `<div class="cal-wd${i > 4 ? " we" : ""}">${w}</div>`).join(""), title;
   if (calOpen) {
@@ -638,21 +705,26 @@ function monthHtml(){
     const first = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
     for (let i = 0; i < first; i++) cells += `<div class="cal-day out"></div>`;
     for (let d = 1; d <= days; d++) cells += dayCell(new Date(y, m, d), t);
-    title = calMonth;
+    title = calMonth.toLocaleDateString("ru-RU", {month: "long", year: "numeric"}).replace(" г.", "");
   } else {
-    for (let i = 0; i < 7; i++) { const d = new Date(calWeek); d.setDate(d.getDate() + i); cells += dayCell(d, t); }
-    title = new Date(calWeek.getFullYear(), calWeek.getMonth(), calWeek.getDate() + 3);
+    for (let i = 0; i < 7; i++) cells += dayCell(addDays(calWeek, i), t);
+    title = weekTitle(calWeek);
   }
-  const name = title.toLocaleDateString("ru-RU", {month: "long", year: "numeric"}).replace(" г.", "");
   const sel = onDay(calDay);
   const label = new Date(calDay + "T12:00").toLocaleDateString("ru-RU", {weekday: "long", day: "numeric", month: "long"});
+  const nothingYet = !S.items.some(i => i.kind !== "buy");
   const list = sel.length ? sel.map(cardHtml).join("")
-    : `<div class="state small"><h3>Свободный день</h3><p>Ни дел, ни планов. Можно наконец ничего не делать вместе.</p></div>`;
-  return `<div class="cal"><div class="cal-head">
+    : nothingYet && !S.partner
+      ? welcomeHtml(true)
+      : `<div class="state small"><h3>Свободный день</h3><p>На этот день ничего нет.</p><button class="btn ghost" data-first="1">Добавить план на этот день</button></div>`;
+  const unit = calOpen ? "месяц" : "неделя";
+  return `<div class="cal"><div class="cal-mode" role="group" aria-label="Показывать">
+      <button data-calmode="week" aria-pressed="${!calOpen}">Неделя</button><button data-calmode="month" aria-pressed="${calOpen}">Месяц</button></div>
+    <div class="cal-head">
       <button class="nav" data-cal="-1" aria-label="${calOpen ? "Предыдущий месяц" : "Предыдущая неделя"}">${icon("i-left")}</button>
-      <button class="cal-title" data-caltoggle="1" aria-expanded="${calOpen}"><b>${esc(name)}</b><span>${calOpen ? "неделя" : "месяц"}${icon(calOpen ? "i-up" : "i-down")}</span></button>
+      <div class="cal-title" id="cal-title" aria-live="polite" data-mode="${calOpen ? "month" : "week"}">${esc(title)}</div>
       <button class="nav" data-cal="1" aria-label="${calOpen ? "Следующий месяц" : "Следующая неделя"}">${icon("i-right")}</button></div>
-    <div class="cal-grid">${cells}</div>
+    <div class="cal-grid" data-unit="${unit}">${cells}</div>
     <div class="legend"><span><span class="dots"><i class="d-ours"></i></span>вместе</span><span><span class="dots"><i class="d-mine"></i></span>личное</span><span><span class="dots"><i class="d-busy"></i></span>занят</span><span><span class="dots"><i class="d-hot"></i></span>горит</span></div></div>
     <div class="day-label">${esc(label.charAt(0).toUpperCase() + label.slice(1))} <small>${sel.length ? sel.length + " " + plural(sel.length, "запись", "записи", "записей") : ""}</small></div>${list}`;
 }
@@ -674,18 +746,32 @@ const DONE_LINES = ["Опа. Человек слова!", "Обещание вы
 document.body.addEventListener("click", async e => {
   if (e.target.closest("[data-retry]")) return load(true);
   if (e.target.closest("[data-close-app]")) return tg && tg.close();
+  if (e.target.closest("[data-share]")) {
+    if (!S || !S.invite) return toast("Ссылка пока не готова, обновите планер.", "bad");
+    const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер");
+    return tg && initData ? tg.openTelegramLink(url) : window.open(url);
+  }
   if (!e.target.closest("#list")) return;
   const nav = e.target.closest("[data-cal]"), day = e.target.closest("[data-day]");
-  if (e.target.closest("[data-caltoggle]")) {
-    calOpen = !calOpen;
-    const d = new Date(calDay + "T12:00");
+  const mode = e.target.closest("[data-calmode]");
+  if (mode) {
+    calOpen = mode.dataset.calmode === "month";
+    const d = new Date(calDay + "T12:00");  // both views open on the selected day
     if (calOpen) calMonth = new Date(d.getFullYear(), d.getMonth(), 1); else calWeek = monday(d);
     render(); return;
   }
   if (nav) {
     if (calOpen) calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + +nav.dataset.cal, 1);
-    else calWeek = new Date(calWeek.getFullYear(), calWeek.getMonth(), calWeek.getDate() + 7 * nav.dataset.cal);
-    render(); return;
+    else calWeek = addDays(calWeek, 7 * nav.dataset.cal);
+    keepDayInView(); render(); return;
+  }
+  const idea = e.target.closest("[data-idea]");
+  if (idea) { const inp = $("input"); inp.value = idea.dataset.idea; store.set("draft", inp.value); inp.focus(); return; }  // fills the field, saves nothing
+  if (e.target.closest("[data-first]")) {
+    // Add through the usual field; for another calendar day the date goes in first («05.11 …»).
+    const inp = $("input");
+    if (tab === "month" && calDay && calDay !== todayIso() && !inp.value.trim()) inp.value = `${calDay.slice(8, 10)}.${calDay.slice(5, 7)} `;
+    inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); return;
   }
   if (day) { calDay = day.dataset.day; render(); return; }
   const d = e.target.closest("[data-done]");
@@ -695,6 +781,15 @@ document.body.addEventListener("click", async e => {
     el.classList.add("done"); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success");
     try { await api(`/api/items/${id}/done`, {method:"POST"}); }
     catch(err){ el.classList.remove("done"); toast("Не отметилось: " + err.message, "bad"); return; }
+    if (it && it.weekday != null) {  // a weekly chore stays on the list, ticked until its next turn
+      await load();
+      toast("Отмечено на эту неделю.", "good", 6000, {label: "Вернуть", run: async () => {
+        try { await api(`/api/items/${id}/undo`, {method:"POST"}); toast("Вернул.", "good"); }
+        catch(err){ toast("Не вернулось: " + err.message, "bad"); }
+        await load();
+      }});
+      return;
+    }
     // The card fades out; «Вернуть» cancels that if it comes first, so the list never drops a restored item.
     const t1 = setTimeout(() => { el.classList.add("gone"); t2 = setTimeout(() => { S.items = S.items.filter(i => i.id !== id); render(); }, 260); }, 500);
     let t2 = 0;
@@ -727,7 +822,7 @@ function openSheet(it){
   const dated = it.kind !== "buy" && it.weekday == null;
   const form = `<form class="edit" id="edit" hidden>
       <label>Название<input name="text" maxlength="300" value="${esc(it.text)}" autocomplete="off"></label>
-      ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>Время<input type="time" name="time" value="${esc(it.time || "")}"></label></div>` : ""}
+      ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>С<input type="time" name="time" value="${esc(it.time || "")}"></label><label>До<input type="time" name="end" value="${esc(it.end || "")}"></label></div>` : ""}
       <div class="err" id="edit-err" role="alert"></div>
       <button class="btn" type="submit">Сохранить</button></form>`;
   $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon(pic(it))}</span><div><b>${esc(it.text)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div></div>`
@@ -736,7 +831,7 @@ function openSheet(it){
   $("edit").onsubmit = async e => {
     e.preventDefault();
     const f = new FormData($("edit")), body = {text: f.get("text")};
-    if (dated) { body.day = f.get("day") || null; body.time = f.get("time") || null; }
+    if (dated) { body.day = f.get("day") || null; body.time = f.get("time") || null; body.end = f.get("end") || null; }
     const btn = $("edit").querySelector(".btn"); if (btn.disabled) return;
     btn.disabled = true; $("edit-err").textContent = "";
     try { await api(`/api/items/${it.id}`, {method:"PATCH", body:JSON.stringify(body)}); }

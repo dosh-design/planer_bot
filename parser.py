@@ -24,7 +24,8 @@ WD_FULL = ["понедельник", "вторник", "среда", "четве
 MONTHS = {"январ": 1, "феврал": 2, "март": 3, "апрел": 4, "мая": 5, "май": 5, "июн": 6, "июл": 7,
           "август": 8, "сентябр": 9, "октябр": 10, "ноябр": 11, "декабр": 12}
 BUSY_WORDS = ("футбол", "баня", "бане", "баню", "рыбалк", "тренировк", "зал", "хоккей", "покер", "гараж",
-              "маникюр", "йога", "пилатес", "девичник", "мальчишник", "с друзьями", "с подругами", "занят")
+              "маникюр", "йога", "пилатес", "девичник", "мальчишник", "с друзьями", "с подругами", "занят",
+              "пробежк", "бассейн", "спортзал")
 EVENT_WORDS = ("вместе", "мы ", "нам ", "к маме", "к родител", "в гости", "кино", "ресторан", "театр",
                "годовщин", "свидани", "день рождения", "др ")
 PARTNER_WORDS = ("ты ", "тебе", "твой", "твоя", "обещал", "не забудь", "напомни ему", "напомни ей", "можешь", "сможешь")
@@ -37,6 +38,7 @@ class Parsed:
     who: str = "me"           # me | partner | both
     date: str | None = None   # YYYY-MM-DD
     time: str | None = None   # HH:MM
+    end: str | None = None    # HH:MM, when the phrase gives a span: «с 8 до 10»
     weekly: int | None = None  # 0..6 for repeating busy days
 
     def to_dict(self) -> dict:
@@ -101,14 +103,69 @@ def _date(today: dt.date, d: int, m: int, y: str | None) -> str | None:
     return out.isoformat()
 
 
+# «с восьми до десяти», «в семь»: hours said in words, in the forms that follow «с», «до» and «в».
+HOUR_WORDS = {
+    "одного": 1, "часу": 1, "час": 1, "двух": 2, "два": 2, "трех": 3, "трёх": 3, "три": 3, "четырех": 4, "четырёх": 4, "четыре": 4,
+    "пяти": 5, "пять": 5, "шести": 6, "шесть": 6, "семи": 7, "семь": 7, "восьми": 8, "восемь": 8,
+    "девяти": 9, "девять": 9, "десяти": 10, "десять": 10, "одиннадцати": 11, "одиннадцать": 11,
+    "двенадцати": 12, "двенадцать": 12, "полудня": 12, "полдень": 12,
+}
+_HW = "|".join(sorted(HOUR_WORDS, key=len, reverse=True))
+_CLOCK = rf"(\d{{1,2}}(?:[:.]\d{{2}})?|{_HW})"
+_PART = r"(?: час\w*)?(?: (утра|дня|вечера|ночи))?"
+_SPAN = re.compile(rf"\bс {_CLOCK}{_PART}(?: и)? до {_CLOCK}{_PART}(?![\w.:])")
+# «8–10 утра», «в 19:00-21:00»: a dash span needs «с»/«в» before it, a clock or a part of day, so «2-3 яблока» stays
+_DASH = re.compile(rf"(?:\b([св]) )?\b(\d{{1,2}}(?::\d{{2}})?) ?[-–—] ?(\d{{1,2}}(?::\d{{2}})?)(?: час\w*)?(?: (утра|дня|вечера|ночи))?(?![\w.:])")
+
+
+def _clock(s: str) -> tuple[int, int] | None:
+    if s in HOUR_WORDS:
+        return HOUR_WORDS[s], 0
+    h, _, m = s.replace(".", ":").partition(":")
+    h, m = int(h), int(m or 0)
+    return (h, m) if h < 24 and m < 60 else None
+
+
+def find_span(t: str) -> tuple[str, str] | None:
+    """«с 8 до 10 утра» → ("08:00", "10:00"); «с семи до девяти вечера» → ("19:00", "21:00").
+    A part of day said once at the end covers both ends; «с 10 до 2» runs past noon; with no part of day
+    an afternoon-sized span («с 3 до 5») is read as the afternoon, like a single «в 3»."""
+    m = _SPAN.search(t)
+    if m:
+        a, pa, b, pb = m.groups()
+    else:
+        m = _DASH.search(t)
+        if not m or not (m.group(1) or m.group(4) or ":" in m.group(2) + m.group(3)):
+            return None
+        a, b, pb = m.group(2), m.group(3), m.group(4)
+        pa = None
+    a, b = _clock(a), _clock(b)
+    if not a or not b:
+        return None
+    (ha, ma), (hb, mb) = a, b
+    if pb in ("дня", "вечера") and hb < 12:
+        hb += 12
+    if pa in ("дня", "вечера") and ha < 12:
+        ha += 12
+    elif pa is None and pb in ("дня", "вечера") and ha < 12 and (ha + 12, ma) < (hb, mb):
+        ha += 12  # «с 7 до 9 вечера»; but «с 11 до 2 дня» starts at 11
+    if not pa and not pb and 1 <= ha <= 7 and 1 <= hb <= 7 and (ha, ma) < (hb, mb):
+        ha, hb = ha + 12, hb + 12
+    if (hb, mb) <= (ha, ma) and hb + 12 < 24:
+        hb += 12  # «с 10 до 2»
+    if (hb, mb) <= (ha, ma) or hb > 23:
+        return None
+    return f"{ha:02d}:{ma:02d}", f"{hb:02d}:{mb:02d}"
+
+
 def find_time(t: str) -> str | None:
     # «18:30» is a time; «05.11» is a date (find_date), unless it reads «в 18.30» and can't be a month.
     m = re.search(r"\b(\d{1,2}):(\d{2})\b", t) or re.search(r"\bв (\d{1,2})\.(\d{2})\b(?!\.)", t)
     if m and int(m.group(1)) < 24 and int(m.group(2)) < 60 and (":" in m.group(0) or int(m.group(2)) > 12):
         return f"{int(m.group(1)):02d}:{m.group(2)}"
-    m = re.search(r"\bв (\d{1,2})(?![.:]\d)(?: час\w*)?(?: (утра|дня|вечера|ночи))?\b", t)
+    m = re.search(rf"\bв (\d{{1,2}}|{_HW})(?![.:]\d)(?: час\w*)?(?: (утра|дня|вечера|ночи))?\b", t)
     if m:
-        h = int(m.group(1))
+        h = HOUR_WORDS.get(m.group(1)) or int(m.group(1))
         part = m.group(2)
         if part in ("дня", "вечера") and h < 12:
             h += 12
@@ -132,13 +189,15 @@ def find_weekly(t: str) -> int | None:
 # ---------- is it something to write down at all? ----------
 
 # Small talk that must never become a task (and never ping the partner).
-CHAT = re.compile(
-    r"(привет\w*|здравствуй\w*|здорово|хай|хеллоу|ку|йо|доброе утро|добрый (?:день|вечер)|доброй ночи|спокойной ночи|"
+_CHAT_UNIT = (
+    r"(?:привет\w*|здравствуй\w*|здорово|хай|хеллоу|ку|йо|доброе утро|добрый (?:день|вечер)|доброй ночи|спокойной ночи|"
     r"спасибо\w*|спс|благодарю|пасиб\w*|ок|окей|ok|ага|угу|да|нет|неа|хорошо|ладно|понял\w*|принято|ясно|супер|класс|круто|"
     r"пока|до встречи|целую|люблю\w*(?: тебя)?|я тебя люблю|как дела|как ты|ты тут|ты здесь|что делаешь|чем занят\w*|"
     r"кто ты|что ты умеешь|помощь|тест|проверка)"
     r"(?:[ ,]+(?:тебе|вам|бот|большое|огромное|милый|милая|дорогой|дорогая|солнце|зай\w*|а ты|у тебя|как))*"
 )
+# One or several pleasantries in a row: «хорошо, спасибо», «ок, пока», «привет, как дела».
+CHAT = re.compile(rf"{_CHAT_UNIT}(?:[ ,]+{_CHAT_UNIT})*")
 # «Привет! Купи хлеба» — the greeting goes, the errand stays.
 _LEAD = re.compile(r"^\s*(?:привет\w*|здравствуй\w*|доброе утро|добрый (?:день|вечер)|хай|слушай|кстати)\s*[!,.)]*\s+(?=\S)", re.I)
 
@@ -188,13 +247,16 @@ _JUNK = re.compile(
     r"утром|вечером|до выходных|на выходных|в выходные|до конца недели|на неделе|"
     r"через \d+ (?:дн\w+|день|недел\w+)|через (?:день|неделю|две недели)|"
     r"(?:в|во|до|к|по) (?:понедельник\w*|вторник\w*|сред\w+|четверг\w*|пятниц\w+|суббот\w+|воскресень\w+)|"
-    r"кажд\w+ \w+|в \d{1,2}(?:[:.]\d{2})?(?: час\w*)?(?: (?:утра|дня|вечера|ночи))?|\d{1,2}[.:]\d{2}(?:\.\d{2,4})?)\b",
+    r"на (?:тебе|мне|нас)|кажд\w+ \w+|по (?:понедельникам|вторникам|средам|четвергам|пятницам|субботам|воскресеньям)|в (?:\d{1,2}(?:[:.]\d{2})?|" + _HW + r")(?: час\w*)?(?: (?:утра|дня|вечера|ночи))?|\d{1,2}[.:]\d{2}(?:\.\d{2,4})?)\b",
     re.I,
 )
 
 
 def _clean(text: str) -> str:
-    out = _JUNK.sub(" ", text)
+    out = re.sub(_SPAN.pattern, " ", text, flags=re.I)
+    out = re.sub(_DASH.pattern, lambda m: " " if (m.group(1) or m.group(4) or ":" in m.group(2) + m.group(3)) else m.group(0),
+                 out, flags=re.I)
+    out = _JUNK.sub(" ", out)
     out = re.sub(r"\s+", " ", out).strip(" ,.!?-—")
     return out[:1].upper() + out[1:] if out else text.strip()
 
@@ -209,29 +271,31 @@ def rules(text: str, today: dt.date) -> list[Parsed]:
         return [Parsed("buy", p, date=when) for p in parts if p]
     weekly = find_weekly(t)
     when = None if weekly is not None else find_date(t, today)
-    at = find_time(t)
+    at, end = find_span(t) or (find_time(t), None)
     if any(w in t for w in BUSY_WORDS):
-        return [Parsed("busy", _clean(text), "me", when, at, weekly)]
+        return [Parsed("busy", _clean(text), "me", when, at, end, weekly)]
     if any(w in t for w in EVENT_WORDS):
-        return [Parsed("event", _clean(text), "both", when, at)]
+        return [Parsed("event", _clean(text), "both", when, at, end)]
     who = "partner" if any(w in t for w in PARTNER_WORDS) else "me"
     if re.match(r"\s*давай(?:те)?\b", t):  # «давай завтра купим продукты» — the two of you
         who = "both"
-    return [Parsed("task", _clean(text), who, when, at)]
+    return [Parsed("task", _clean(text), who, when, at, end, weekly)]
 
 
 # ---------- the model ----------
 
 PROMPT = """Ты разбираешь фразы для семейного планера пары. Сегодня {today} ({weekday}).
 Фразу написал(а) {author}, партнёр — {partner}.{forwarded}
-Верни только JSON: {{"items": [{{"kind": "...", "text": "...", "who": "...", "date": null, "time": null, "weekly": null}}]}}
+Верни только JSON: {{"items": [{{"kind": "...", "text": "...", "who": "...", "date": null, "time": null, "end": null, "weekly": null}}]}}
 kind: "task" — дело или обещание (вкрутить лампочку, позвонить маме); "buy" — покупка, по одной позиции на item;
 "busy" — личные планы одного из партнёров, когда он занят (футбол, баня, маникюр, работа допоздна);
 "event" — совместные планы пары (в гости к маме, кино, годовщина).
 text: коротко, с большой буквы, без дат и слов «напомни», «не забудь». Пример: «Вкрутить лампочку в ванной».
 who: "me" — делает автор, "partner" — делает партнёр (если фразу обращают к партнёру, «ты обещал», «пусть он»), "both" — оба.
 date: "YYYY-MM-DD" или null. «В субботу» — ближайшая будущая суббота. time: "HH:MM" или null.
+end: "HH:MM", если сказано, до скольки («с 8 до 10 утра» → time "08:00", end "10:00»), иначе null.
 weekly: номер дня недели 0–6 (0 = понедельник), если повторяется каждую неделю («по субботам баня»), иначе null.
+Регулярная домашняя обязанность («по вторникам выношу мусор», «пылесосить каждую субботу — на тебе») — это "task" с weekly.
 Не выдумывай дела, которых нет во фразе. Если во фразе нет ни дела, ни покупки, ни планов (приветствие, спасибо,
 вопрос, болтовня), верни {{"items": []}}. Не придумывай время: если его нет во фразе, time = null."""
 
@@ -268,7 +332,9 @@ def from_model(raw: str, today: dt.date, source: str = "") -> list[Parsed]:
     data = json.loads(m.group(0) if m else raw)
     if not isinstance(data, dict) or not isinstance(data.get("items", []), list):
         raise ValueError("unexpected model answer")
-    said_time = not source or re.search(r"\d|утр|вечер|дн[её]м|ноч|полдень|полноч|обед", source.lower())
+    low = source.lower().replace("ё", "е")
+    said_time = not source or re.search(rf"\d|утр|вечер|днем|ноч|полдень|полноч|обед|\b(?:{_HW})\b", low)
+    span = find_span(f" {low} ") if source else None
     out = []
     for it in data.get("items", [])[:10]:
         kind = it.get("kind") if it.get("kind") in ("task", "buy", "busy", "event") else "task"
@@ -284,13 +350,21 @@ def from_model(raw: str, today: dt.date, source: str = "") -> list[Parsed]:
         except (TypeError, ValueError):
             date = None
         time = it.get("time")
-        time = time if said_time and isinstance(time, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", time) else None
+        time = time if said_time and _is_hhmm(time) else None
+        end = it.get("end")
+        end = end if time and _is_hhmm(end) and end > time else None
+        if span:  # a span the code can read is not left to the model: it drops or shifts the end too often
+            time, end = span
         weekly = it.get("weekly")
-        weekly = weekly if isinstance(weekly, int) and 0 <= weekly <= 6 and kind == "busy" else None
+        weekly = weekly if isinstance(weekly, int) and 0 <= weekly <= 6 and kind in ("busy", "task") else None
         if weekly is not None:
             date = None
-        out.append(Parsed(kind, text[:1].upper() + text[1:], who, date, time, weekly))
+        out.append(Parsed(kind, text[:1].upper() + text[1:], who, date, time, end, weekly))
     return out
+
+
+def _is_hhmm(value) -> bool:
+    return isinstance(value, str) and bool(re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value))
 
 
 def parse(text: str, today: dt.date, author: str = "я", partner: str = "партнёр", forwarded: str = "",
@@ -318,13 +392,20 @@ def parse(text: str, today: dt.date, author: str = "я", partner: str = "пар�
     return items
 
 
-def human_date(day: str | None, time: str | None = None, today: dt.date | None = None) -> str:
+def human_time(time: str | None, end: str | None = None) -> str:
+    """«в 18:30», or «08:00–10:00» for a span."""
+    if not time:
+        return ""
+    return f"{time}–{end}" if end else f"в {time}"
+
+
+def human_date(day: str | None, time: str | None = None, today: dt.date | None = None, end: str | None = None) -> str:
     if not day:
-        return f"в {time}" if time else ""
+        return human_time(time, end)
     d = dt.date.fromisoformat(day)
     today = today or dt.date.today()
     delta = (d - today).days
     label = {0: "сегодня", 1: "завтра", 2: "послезавтра", -1: "вчера"}.get(delta)
     if label is None:
         label = f"{WD_SHORT[d.weekday()]} {d:%d.%m}"
-    return f"{label} в {time}" if time else label
+    return f"{label}, {human_time(time, end)}" if end else (f"{label} в {time}" if time else label)

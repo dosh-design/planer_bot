@@ -55,7 +55,8 @@ def init() -> None:
                 assignee_id INTEGER,            -- NULL = both partners
                 day TEXT,
                 time TEXT,
-                weekday INTEGER,                -- 0 = Monday; busy days that repeat every week
+                end_time TEXT,                  -- HH:MM when the plan is a span: «с 8 до 10»
+                weekday INTEGER,                -- 0 = Monday; busy days and house chores that repeat every week
                 status TEXT NOT NULL DEFAULT 'open',
                 created TEXT NOT NULL,
                 done_at TEXT,
@@ -82,6 +83,9 @@ def init() -> None:
             );
             """
         )
+        # Bases made before spans existed: add the column, keep every row as it is.
+        if "end_time" not in {r[1] for r in c.execute("PRAGMA table_info(items)")}:
+            c.execute("ALTER TABLE items ADD COLUMN end_time TEXT")
 
 
 def _stamp() -> str:
@@ -216,13 +220,15 @@ def delete_user(uid: int) -> None:
 # ---------- items ----------
 
 def add_item(couple_id: int, author_id: int, kind: str, text: str, assignee_id: int | None = None,
-             day: str | None = None, time: str | None = None, weekday: int | None = None) -> int:
+             day: str | None = None, time: str | None = None, weekday: int | None = None,
+             end_time: str | None = None) -> int:
     assert kind in KINDS
     with closing(_connect()) as c:
         return c.execute(
-            "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, weekday, created)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (couple_id, kind, text[:300], author_id, assignee_id, day, time, weekday, _stamp()),
+            "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, weekday, created, end_time)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (couple_id, kind, text[:300], author_id, assignee_id, day, time, weekday, _stamp(),
+             end_time if time else None),
         ).lastrowid
 
 
@@ -253,8 +259,8 @@ def set_done(item_id: int, couple_id: int, done: bool = True) -> bool:
 
 
 def update_item(item_id: int, couple_id: int, **fields) -> bool:
-    """Change text/day/time; a moved date or time re-arms the exact-time reminder."""
-    allowed = {k: v for k, v in fields.items() if k in ("text", "day", "time")}
+    """Change text/day/time/end_time; a moved date or time re-arms the exact-time reminder."""
+    allowed = {k: v for k, v in fields.items() if k in ("text", "day", "time", "end_time")}
     if not allowed:
         return False
     sets = ", ".join(f"{k} = ?" for k in allowed)
@@ -263,6 +269,13 @@ def update_item(item_id: int, couple_id: int, **fields) -> bool:
     with closing(_connect()) as c:
         return c.execute(f"UPDATE items SET {sets} WHERE id = ? AND couple_id = ?",
                          (*allowed.values(), item_id, couple_id)).rowcount == 1
+
+
+def set_chore_done(item_id: int, couple_id: int, done: bool = True) -> bool:
+    """A weekly chore stays on the list: «done» only marks this week's turn (done_at), «undo» clears it."""
+    with closing(_connect()) as c:
+        return c.execute("UPDATE items SET done_at = ? WHERE id = ? AND couple_id = ? AND weekday IS NOT NULL",
+                         (_stamp() if done else None, item_id, couple_id)).rowcount == 1
 
 
 def set_assignee(item_id: int, couple_id: int, assignee_id: int | None) -> bool:
@@ -321,7 +334,7 @@ def nudge_candidates(today: dt.date) -> list[sqlite3.Row]:
     t = today.isoformat()
     with closing(_connect()) as c:
         return c.execute(
-            "SELECT * FROM items WHERE status = 'open' AND kind = 'task'"
+            "SELECT * FROM items WHERE status = 'open' AND kind = 'task' AND weekday IS NULL"
             " AND ((day IS NOT NULL AND day < ?) OR (day IS NULL AND substr(created, 1, 10) <= ?))"
             " AND (last_nudge IS NULL OR last_nudge <= ?)",
             (t, first, again),

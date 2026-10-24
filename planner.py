@@ -53,17 +53,37 @@ def is_hot(row, today: dt.date | None = None) -> bool:
     """Burning: a chore past its date, or a promise without a date hanging longer than HOT_AFTER_DAYS.
     A joint plan whose day has passed is history, not a fire: nobody can still go to yesterday's cinema."""
     today = today or db.local_now().date()
-    if row["kind"] not in ("task", "event") or row["status"] != "open":
-        return False
+    if row["kind"] not in ("task", "event") or row["status"] != "open" or row["weekday"] is not None:
+        return False  # a weekly chore never burns: it comes back every week anyway
     if row["day"]:
         return row["kind"] == "task" and row["day"] < today.isoformat()
     return row["kind"] == "task" and hangs_days(row, today) >= HOT_AFTER_DAYS
 
 
+def turn_day(weekday: int, today: dt.date) -> dt.date:
+    """The date of this week's turn of a weekly chore: today or the latest such weekday before it."""
+    return today - dt.timedelta(days=(today.weekday() - weekday) % 7)
+
+
+def chore_done(row, today: dt.date | None = None) -> bool:
+    """A weekly chore counts as done once someone ticked it on or after this week's turn."""
+    today = today or db.local_now().date()
+    return bool(row["kind"] == "task" and row["weekday"] is not None and row["done_at"]
+                and row["done_at"][:10] >= turn_day(row["weekday"], today).isoformat())
+
+
 def when_text(row, today: dt.date | None = None) -> str:
     today = today or db.local_now().date()
     if row["weekday"] is not None:
-        return WEEKLY[row["weekday"]]
+        span = parser.human_time(row["time"], row["end_time"])
+        label = WEEKLY[row["weekday"]]
+        if row["kind"] == "task":
+            if chore_done(row, today):
+                nxt = turn_day(row["weekday"], today) + dt.timedelta(days=7)
+                label = f"сделано, дальше {parser.WD_SHORT[nxt.weekday()]} {nxt:%d.%m}"
+            elif row["weekday"] == today.weekday():
+                label = f"сегодня, {label}"
+        return f"{label}, {span}" if row["end_time"] else (f"{label} {span}" if span else label)
     if row["kind"] in ("task", "event") and row["day"] and row["day"] < today.isoformat():
         late = (today - dt.date.fromisoformat(row["day"])).days
         if row["kind"] == "event":
@@ -73,12 +93,13 @@ def when_text(row, today: dt.date | None = None) -> str:
         hangs = hangs_days(row, today)
         if hangs >= 2:  # the quiet sarcasm of the list itself
             return f"висит {jokes.plural_days(hangs)}"
-    return parser.human_date(row["day"], row["time"], today)
+    return parser.human_date(row["day"], row["time"], today, row["end_time"])
 
 
 def line(row, today: dt.date | None = None) -> str:
     """«🔧 Вкрутить лампочку · Вася · сб 26.10»"""
-    icon = "🔥" if is_hot(row, today) else ICONS[row["kind"]]
+    icon = "🔥" if is_hot(row, today) else ("🏠" if row["kind"] == "task" and row["weekday"] is not None
+                                           else ICONS[row["kind"]])
     parts = [f"{icon} {esc(row['text'])}"]
     if row["kind"] != "buy":
         parts.append(esc(name(row["assignee_id"])))
@@ -157,7 +178,7 @@ def add_parsed(uid: int, parsed: list) -> tuple[list, list[Out]]:
     rows, notes = [], []
     for it in parsed:
         assignee = assignee_for(uid, it.who) if it.kind != "buy" else None
-        iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly)
+        iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly, it.end)
         rows.append(db.item(iid, u["couple_id"]))
     if rows:
         db.touch(uid)
@@ -185,7 +206,14 @@ def done(uid: int, item_id: int) -> tuple[bool, list[Out]]:
     """Tick an item off; the partner hears about finished chores (that's the fun part)."""
     u = db.user(uid)
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
-    if not row or not db.set_done(item_id, u["couple_id"]):
+    if not row:
+        return False, []
+    if row["status"] != "open":
+        return True, []  # ticked twice: still done, the partner isn't told again
+    chore = row["kind"] == "task" and row["weekday"] is not None
+    if chore and chore_done(row):
+        return True, []
+    if not (db.set_chore_done(item_id, u["couple_id"]) if chore else db.set_done(item_id, u["couple_id"])):
         return False, []
     db.touch(uid)
     notes = []
@@ -200,7 +228,12 @@ def undo_done(uid: int, item_id: int) -> bool:
     """Put an item ticked off by mistake back on the list (the partner is not told twice)."""
     u = db.user(uid)
     row = db.item(item_id, u["couple_id"]) if u and u["couple_id"] else None
-    if not row or row["status"] != "done" or not db.set_done(item_id, u["couple_id"], done=False):
+    if not row:
+        return False
+    if row["kind"] == "task" and row["weekday"] is not None:  # a weekly chore: only this week's tick goes
+        if row["status"] != "open" or not row["done_at"] or not db.set_chore_done(item_id, u["couple_id"], done=False):
+            return False
+    elif row["status"] != "done" or not db.set_done(item_id, u["couple_id"], done=False):
         return False
     db.touch(uid)
     return True
@@ -219,13 +252,21 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         if not text:
             return False, "Название не может быть пустым"
         fields["text"] = text[:300]
-    for key, check in (("day", _valid_day), ("time", _valid_time)):
+    for key, field, check in (("day", "day", _valid_day), ("time", "time", _valid_time), ("end", "end_time", _valid_time)):
         if key in changes:
             value = changes[key] or None
             if value is not None and not check(value):
                 return False, "Не понял дату" if key == "day" else "Время нужно в виде 18:30"
-            fields[key] = value
-    if row["weekday"] is not None and ("day" in fields or "time" in fields):
+            fields[field] = value
+    start = fields.get("time", row["time"])
+    if not start and "end_time" not in fields and row["end_time"]:
+        fields["end_time"] = None  # the start is gone, so is the span
+    end = fields.get("end_time", row["end_time"])
+    if end and not start:
+        return False, "Укажите, со скольки"
+    if end and end <= start:
+        return False, "Конец должен быть позже начала"
+    if row["weekday"] is not None and ("day" in fields or "time" in fields or "end_time" in fields):
         return False, "Повторяющееся дело меняется сообщением боту"
     if "time" in fields and fields["time"] and not fields.get("day", row["day"]):
         return False, "Время без даты не сработает: укажите и дату"
@@ -306,6 +347,9 @@ def morning(today: dt.date) -> list[Out]:
             lines = []
             for r in open_items:
                 if r["kind"] in ("task", "event") and r["day"] == t and r["assignee_id"] in (person["id"], None):
+                    lines.append(line(r, today))
+                elif (r["kind"] == "task" and r["weekday"] == today.weekday() and not chore_done(r, today)
+                      and r["assignee_id"] in (person["id"], None)):
                     lines.append(line(r, today))
             for b in db.busy_on(cid, t):
                 if b["assignee_id"] != person["id"]:

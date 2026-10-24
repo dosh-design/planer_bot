@@ -31,12 +31,13 @@ _me: dict = {}
 
 HELP = (
     "Пиши или наговаривай голосом как есть, я сам разложу:\n"
+    "• «По вторникам выносить мусор — на тебе» → обязанность по дому, каждую неделю\n"
     "• «Вкрути лампочку в ванной до субботы» → дело на партнёра\n"
     "• «Купить хлеб, молоко и батарейки» → покупки\n"
-    "• «По четвергам у меня футбол» → твой занятой день\n"
+    "• «В воскресенье пробежка с 8 до 10» → твоё занятое время\n"
     "• «В воскресенье едем к маме» → общий план, проверю, что никто не занят\n"
-    "Можно переслать сообщение из вашей переписки: «ты обещал…» тоже поймаю.\n\n"
-    "Напоминаю я с сарказмом. Обижаться можно, отменять напоминание — нет."
+    "Можно переслать сообщение из вашей переписки: «сделай, пожалуйста…» тоже пойму.\n\n"
+    "Напоминаю с юмором. Обижаться можно, отменять напоминание — нет."
 )
 
 
@@ -123,9 +124,9 @@ async def start(msg: Message, command: CommandObject, bot: Bot) -> None:
             return
     partner = db.partner(uid)
     pair = f"Вы в паре с {esc(partner['name'])}." if partner else (
-        "Сначала позови вторую половину, без неё напоминать некому. Перешли эту ссылку:\n"
+        "Начать можно и одному, но делить дела удобнее вдвоём. Перешли второй половине эту ссылку:\n"
         f"{await invite_link(bot, uid)}\n{INVITE_RULES}")
-    await msg.answer(f"Привет! Я {esc(config.brand)}: семейный планер, который помнит всё, что вы друг другу обещали.\n\n"
+    await msg.answer(f"Привет! Я {esc(config.brand)}: планер для пары. Помогаю делить домашние дела, покупки и планы, чтобы ничего не терялось и никто не тянул всё на себе.\n\n"
                      f"{pair}\n\n{HELP}", reply_markup=menu(), disable_web_page_preview=True)
 
 
@@ -173,14 +174,17 @@ async def tasks(msg: Message) -> None:
     p = db.partner(u["id"])
     hot = [r for r in rows if planner.is_hot(r, today)]
     hot_ids = {r["id"] for r in hot}
-    cold = [r for r in rows if r["id"] not in hot_ids]
+    chores = [r for r in rows if r["weekday"] is not None and r["id"] not in hot_ids]
+    cold = [r for r in rows if r["id"] not in hot_ids and r["weekday"] is None]
     parts = [
         _section("🔥 ГОРИТ", hot, today),
         _section("Твои", [r for r in cold if r["assignee_id"] == u["id"]], today),
         _section(f"Дела: {esc(p['name'])}" if p else "Партнёра", [r for r in cold if p and r["assignee_id"] == p["id"]], today),
         _section("Общие", [r for r in cold if r["assignee_id"] is None], today),
+        _section("🏠 Обязанности по дому", chores, today),
     ]
-    buttons = [[(f"✅ {r['text'][:28]}", f"done:{r['id']}")] for r in (hot + cold)[:15]]
+    todo = hot + cold + [r for r in chores if not planner.chore_done(r, today)]
+    buttons = [[(f"✅ {r['text'][:28]}", f"done:{r['id']}")] for r in todo[:15]]
     await msg.answer("\n\n".join(x for x in parts if x), reply_markup=kb(buttons))
 
 

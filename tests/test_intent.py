@@ -17,7 +17,8 @@ THU = dt.date(2026, 10, 22)
 # ---------- small talk is not a task ----------
 
 @pytest.mark.parametrize("text", ["Привет", "Спасибо", "Как дела?", "Привет, как дела?", "спасибо большое", "Ок 👍",
-                                  "👍", "Ты купил хлеб?", "ты тут?", "Люблю тебя"])
+                                  "👍", "Ты купил хлеб?", "ты тут?", "Люблю тебя",
+                                  "Хорошо, спасибо", "Ок, пока", "Ладно, спасибо большое"])
 def test_small_talk_is_not_an_item(text):
     assert parser.intent(text, THU) == "chat"
     assert parser.parse(text, THU) == []
@@ -190,3 +191,13 @@ async def test_daily_model_limit_then_rules(couple, model_on, monkeypatch):
         rows, _ = await planner.add_text_async(1, "вкрутить лампочку в ванной")
         assert rows
     assert len(calls) == 3  # AI_DAILY_LIMIT=3, the rest went through the rules
+
+
+def test_pleasantry_before_an_errand_still_counts():
+    assert parser.intent("Спасибо, купи молоко", THU) == "do"
+
+
+def test_day_month_is_a_date_not_a_time():
+    """«05.11» is the 5th of November, not 05:11."""
+    items = parser.parse("Забрать документы 05.11", THU, allow_model=False)
+    assert [(i.text, i.date, i.time) for i in items] == [("Забрать документы", "2026-11-05", None)]

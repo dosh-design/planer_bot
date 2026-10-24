@@ -45,7 +45,9 @@ def _item(row, today) -> dict:
         "id": row["id"], "kind": row["kind"], "text": row["text"], "status": row["status"],
         "assignee": row["assignee_id"], "assignee_name": planner.name(row["assignee_id"]),
         "author": row["author_id"], "when": planner.when_text(row, today), "day": row["day"], "time": row["time"],
+        "end": row["end_time"],
         "hot": planner.is_hot(row, today),
+        "chore_done": planner.chore_done(row, today),
         "weekday": row["weekday"],
         "warnings": planner.warnings(row),
     }
@@ -119,7 +121,7 @@ async def change(request: web.Request) -> web.Response:
         body = None
     if not isinstance(body, dict):
         return _err("Пустой запрос")
-    ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in ("text", "day", "time") if k in body})
+    ok, error = planner.edit(request["uid"], _id(request), {k: body[k] for k in ("text", "day", "time", "end") if k in body})
     if not ok:
         return _err(error, 404 if error == "Запись не найдена" else 400)
     row = db.item(_id(request), db.user(request["uid"])["couple_id"])
