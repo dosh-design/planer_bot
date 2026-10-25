@@ -293,6 +293,8 @@ async def _reply_added(msg: Message, bot: Bot, text: str, forwarded: str = "") -
         await msg.answer("Не понял, что записать. Скажи проще: что сделать и когда.")
         return
     await _confirm(msg, u, rows, notes, bot, before)
+    if note := planner.bad_when_note(text, rows):
+        await msg.answer(note)
 
 
 async def _confirm(msg: Message, u, rows, notes, bot: Bot, before: int = 0) -> None:
@@ -440,6 +442,9 @@ async def cb_force(cb: CallbackQuery, bot: Bot) -> None:
             await cb.message.edit_reply_markup(reply_markup=None)
         return
     u = db.user(uid)
+    if not u or not u["couple_id"]:  # left the planner (/delete) while the question was open
+        await cb.answer("Сначала /start")
+        return
     clean = text.strip()[:200]
     rows, notes = planner.add_parsed(uid, [parser.Parsed(kind, clean[:1].upper() + clean[1:])])
     await cb.answer("Записал")
@@ -479,6 +484,8 @@ async def cb_who(cb: CallbackQuery, bot: Bot) -> None:
     u = db.user(uid)
     row = db.item(int(item_id), u["couple_id"])
     await cb.answer("Переназначил")
+    if not row:
+        return
     if cb.message:
         try:
             await cb.message.edit_text("Записал: " + planner.line(row), reply_markup=kb(planner.item_buttons(row)))
@@ -490,11 +497,13 @@ async def cb_who(cb: CallbackQuery, bot: Bot) -> None:
 @router.callback_query(F.data == "forget")
 async def cb_forget(cb: CallbackQuery) -> None:
     db.delete_user(cb.from_user.id)
-    await cb.answer()
-    await cb.message.edit_text("Удалил. Если передумаешь — /start.")
+    await cb.answer("Удалил")
+    if cb.message:
+        await cb.message.edit_text("Удалил. Если передумаешь — /start.")
 
 
 @router.callback_query(F.data == "keep")
 async def cb_keep(cb: CallbackQuery) -> None:
-    await cb.answer()
-    await cb.message.edit_text("Оставил всё как есть.")
+    await cb.answer("Оставил всё как есть")
+    if cb.message:
+        await cb.message.edit_text("Оставил всё как есть.")

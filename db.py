@@ -278,9 +278,12 @@ def _join(c: _sqlite.Connection, uid: int, code: str) -> str:
             same = _same_name(c, cid, pr["name"])
             if same:
                 c.execute("UPDATE items SET project_id = ? WHERE project_id = ?", (same, pr["id"]))
+                c.execute("UPDATE project_sections SET project_id = ? WHERE project_id = ?", (same, pr["id"]))
                 c.execute("DELETE FROM projects WHERE id = ?", (pr["id"],))
             else:
                 c.execute("UPDATE projects SET couple_id = ? WHERE id = ?", (cid, pr["id"]))
+        # Stages move with their projects: the old couple's row is deleted below and would take them along.
+        c.execute("UPDATE project_sections SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         c.execute("UPDATE items SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         # The score and achievements of the one who started alone join the couple's; the rest goes with the old couple.
         for table in ("game_events", "game_matches", "game_achievements"):
@@ -295,6 +298,9 @@ def delete_user(uid: int) -> None:
     with closing(_connect()) as c:
         c.execute("DELETE FROM users WHERE id = ?", (uid,))
         c.execute("DELETE FROM activity WHERE user_id = ?", (uid,))
+        # The phrase waiting for «это что?» is the person's text; counters and hints go too.
+        c.execute("DELETE FROM kv WHERE key LIKE ? OR key LIKE ? OR key LIKE ? OR key LIKE ?",
+                  (f"pending:{uid}", f"solo_hint:{uid}", f"ai:{uid}:%", f"voice:{uid}:%"))
         if u and u["couple_id"]:
             left = c.execute("SELECT COUNT(*) FROM users WHERE couple_id = ?", (u["couple_id"],)).fetchone()[0]
             if left:

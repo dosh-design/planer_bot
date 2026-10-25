@@ -105,6 +105,32 @@ def _date(today: dt.date, d: int, m: int, y: str | None) -> str | None:
     return out.isoformat()
 
 
+def bad_when(text: str) -> str | None:
+    """A date or time the phrase names but that does not exist: «31.02», «30 февраля», «в 25:00».
+    The item is still saved without it; the caller says so instead of silently dropping it."""
+    t = text.lower().replace("ё", "е")
+    for m in re.finditer(r"(?<![\d.:])(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?![\d:])", t):
+        d, mo, y = int(m.group(1)), int(m.group(2)), m.group(3)
+        year = int(y) + (2000 if len(y) == 2 else 0) if y else 2028  # a leap year: «29.02» without a year is fine
+        if mo <= 12 or d <= 12:
+            try:
+                dt.date(year, mo, d)
+            except ValueError:
+                if not (mo > 12 and d <= 12):  # «10.15» reads as a time, not a date
+                    return m.group(0)
+    for m in re.finditer(r"\b(\d{1,2}) ([а-я]+)", t):
+        month = next((n for stem, n in MONTHS.items() if m.group(2).startswith(stem)), None)
+        if month:
+            try:
+                dt.date(2028, month, int(m.group(1)))
+            except ValueError:
+                return m.group(0)
+    m = re.search(r"\b(?:в|к|до|с) (\d{1,2}):(\d{2})\b", t)
+    if m and (int(m.group(1)) > 23 or int(m.group(2)) > 59):
+        return m.group(0)
+    return None
+
+
 # «с восьми до десяти», «в семь»: hours said in words, in the forms that follow «с», «до» and «в».
 HOUR_WORDS = {
     "одного": 1, "часу": 1, "час": 1, "двух": 2, "два": 2, "трех": 3, "трёх": 3, "три": 3, "четырех": 4, "четырёх": 4, "четыре": 4,

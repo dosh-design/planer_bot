@@ -86,10 +86,10 @@ async def state(request: web.Request) -> web.Response:
 
 
 async def add(request: web.Request) -> web.Response:
-    try:
-        text = str((await request.json()).get("text", "")).strip()
-    except Exception:
+    body = await _body(request)
+    if body is None or not isinstance(body.get("text", ""), str):
         return _err("Пустой запрос")
+    text = body.get("text", "").strip()
     if not text:
         return _err("Напишите, что не забыть")
     intent = parser.intent(text, db.local_now().date())
@@ -106,7 +106,10 @@ async def add(request: web.Request) -> web.Response:
     today = db.local_now().date()
     names = {pr["id"]: pr["name"] for pr in db.projects(rows[0]["couple_id"])}
     # existing: a purchase that was already on the list, so the app says «уже в списке», not «записал»
-    return web.json_response({"items": [_item(r, today, names) | {"existing": r["id"] <= before} for r in rows]})
+    out = [_item(r, today, names) | {"existing": r["id"] <= before} for r in rows]
+    if note := planner.bad_when_note(text, rows):
+        out[0]["warnings"] = [note] + out[0]["warnings"]  # the app shows the first warning as a toast
+    return web.json_response({"items": out})
 
 
 def _id(request: web.Request) -> int:
@@ -258,6 +261,8 @@ async def project_remove(request: web.Request) -> web.Response:
 
 async def project_add(request: web.Request) -> web.Response:
     body = await _body(request) or {}
+    if not isinstance(body.get("text", ""), str):
+        return _err("Напишите задачу")
     section = body.get("section")
     if section is not None and (not isinstance(section, int) or isinstance(section, bool)):
         return _err("Этап не найден")

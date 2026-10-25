@@ -165,6 +165,14 @@ def add_text(uid: int, text: str, forwarded: str = "", allow_model: bool = True)
     return add_parsed(uid, parser.parse(**args, allow_model=allow_model))
 
 
+def bad_when_note(text: str, rows) -> str:
+    """«31.02» or «в 25:00» in the phrase but nothing dated was saved: say so instead of a silent «записал»."""
+    bad = parser.bad_when(text)
+    if not bad or any(r["day"] or r["time"] for r in rows if r["kind"] != "buy"):
+        return ""
+    return f"⚠️ «{esc(bad)}» — такой даты или времени нет, поэтому записал без срока. Поправьте срок в карточке."
+
+
 def model_budget(uid: int) -> bool:
     """Count one text-model call for today; False once the person is over AI_DAILY_LIMIT."""
     key = f"ai:{uid}:{db.local_now().date().isoformat()}"
@@ -330,6 +338,9 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
     if not row or row["status"] != "open":
         return False, "Запись не найдена"
     fields = {}
+    for key in ("text", "note", "day", "time", "end", "repeat"):
+        if key in changes and changes[key] is not None and not isinstance(changes[key], str):
+            return False, "Неверный формат данных"
     if "text" in changes:
         text = " ".join(str(changes["text"] or "").split())
         if not text:
@@ -595,11 +606,19 @@ def _fmt(template: str, row, who_id: int, today: dt.date, seed: int) -> str:
     )
 
 
+STALE_REMINDER = dt.timedelta(hours=6)
+
+
 def due(now: dt.datetime) -> list[Out]:
     """Exact-time reminders that have come."""
     out = []
     for row in db.due_reminders(now):
         db.mark_reminded(row["id"])
+        if now - db.fire_at(row, config.morning_hour) > STALE_REMINDER:
+            # The bot was down or the date was moved into the past: a «пора» hours late only confuses.
+            # An overdue task still gets the overdue nudges.
+            log.info("reminder for item %s is %s late, not sent", row["id"], now - db.fire_at(row, config.morning_hour))
+            continue
         for uid in _targets(row):
             if row["remind_before"] and row["remind_before"] > 0:  # asked for ahead of time: the line says when it is due
                 text = f"🔔 {esc(name(uid))}, заранее: {esc(row['text'])} — {esc(when_text(row, now.date()))}."

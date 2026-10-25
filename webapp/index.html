@@ -750,6 +750,7 @@ function render(){
       + doneList("Куплено недавно", bought.slice(0, 15));
   } else html = tasksHtml();
   $("list").innerHTML = html;
+  syncBack();
 }
 
 // Главная: what matters today, what burns, what is coming, what to buy, how the projects go. Each item shows once.
@@ -929,7 +930,7 @@ function stageSheet(sc){
     catch(err){ $("sform-err").textContent = err.message; btn.disabled = false; return; }
     closeSheet(); toast(editing ? "Этап переименован." : "Этап добавлен.", "good"); render();
   };
-  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
+  openSheetEl();
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
@@ -977,7 +978,7 @@ function projectSheet(pr, name = ""){
       await load(); return editing ? (await reloadProject(), render()) : showProject(r.project.id);
     } catch(err){ $("pform-err").textContent = err.message; btn.disabled = false; }
   };
-  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
+  openSheetEl();
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
@@ -1179,7 +1180,19 @@ const REMINDS = [["", "В срок"], ["15", "За 15 минут"], ["60", "За
 const REPEATS = [["", "Не повторять"], ["day", "Каждый день"], ["week", "Каждую неделю"], ["month", "Каждый месяц"]];
 const repeatKey = it => !it.repeat ? "" : it.repeat.startsWith("month:") ? "month" : it.repeat;
 const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id)) || (S.done || []).find(i => i.id === id);
-function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); }
+function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); syncBack(); }
+function openSheetEl(){ $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false"); syncBack(); }
+// Telegram's own «Назад» (the header arrow, Android's back key): closes the sheet, then leaves a project or the season,
+// instead of closing the whole app. Hidden on the top-level screens, where back means leaving.
+function syncBack(){
+  const bb = tg && tg.BackButton; if (!bb) return;
+  ($("sheet").classList.contains("on") || openProject || openSeason) ? bb.show() : bb.hide();
+}
+function goBack(){
+  if ($("sheet").classList.contains("on")) return closeSheet();
+  if (openProject || openSeason) { openProject = null; P = null; openSeason = false; render(); }
+}
+if (tg && tg.BackButton && tg.BackButton.onClick) tg.BackButton.onClick(goBack);
 function openSheet(it){
   if (!it) return;
   const rows = [], cur = it.assignee == null ? "both" : it.assignee === S.me.id ? "me" : "partner";
@@ -1224,7 +1237,7 @@ function openSheet(it){
     catch(err){ $("edit-err").textContent = err.message; btn.disabled = false; return; }
     toast("Исправлено.", "good"); closeSheet(); await load();
   };
-  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
+  openSheetEl();
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();

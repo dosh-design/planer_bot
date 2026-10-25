@@ -7,6 +7,7 @@ import time
 from urllib.parse import parse_qsl
 
 MAX_AGE_SECONDS = 24 * 3600
+MAX_CLOCK_SKEW = 5 * 60
 
 
 def verify(init_data: str, bot_token: str, now: float | None = None) -> dict | None:
@@ -25,6 +26,8 @@ def verify(init_data: str, bot_token: str, now: float | None = None) -> dict | N
         user = json.loads(fields.get("user", "{}"))
     except ValueError:
         return None
-    if (now or time.time()) - auth_date > MAX_AGE_SECONDS or "id" not in user:
+    age = (now or time.time()) - auth_date
+    # Too old, or stamped in the future (a clock can drift a little, not by hours): not a real launch.
+    if age > MAX_AGE_SECONDS or age < -MAX_CLOCK_SKEW or not isinstance(user, dict) or "id" not in user:
         return None
     return user
