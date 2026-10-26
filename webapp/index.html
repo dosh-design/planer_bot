@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>Договорились</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -386,7 +386,7 @@ main{animation:in var(--base) var(--ease)}
 .edit{display:grid;gap:var(--s2);padding:var(--s3) 0;border-bottom:1px solid var(--border)}
 .edit label{font:var(--t-caption);color:var(--text-2);display:grid;gap:4px}
 .edit input{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
-  min-height:44px;padding:0 var(--s3);width:100%;min-width:0;color-scheme:light dark}
+  min-height:44px;padding:0 var(--s3);width:100%;min-width:0;color-scheme:light}
 .edit input:focus{outline:none;border-color:var(--brand)}
 .edit textarea,.edit select{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
   min-height:44px;padding:var(--s2) var(--s3);width:100%;min-width:0;color-scheme:light dark}
@@ -504,9 +504,9 @@ const DEMO = !initData && new URLSearchParams(location.search).has("demo");
 let S = null, P = null, doFilter = "all", addSection = null, openProject = null, openSeason = false, SEASON = null, tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
 if (tg && initData) {
   tg.ready(); tg.expand();
-  // Follow Telegram's own theme, not just the phone's: a dark Telegram on a light phone gets the dark app.
+  // Always the light, warm look (the student's choice, 26.10): a dark Telegram no longer turns the planner dark.
   const theme = () => {
-    document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = "light";
     // Telegram's own header, background and bottom bar take the app's background, so there is no seam around it.
     try { const bg = getComputedStyle(document.body).backgroundColor; tg.setHeaderColor(bg); tg.setBackgroundColor(bg); tg.setBottomBarColor && tg.setBottomBarColor(bg); } catch(e){}
   };
