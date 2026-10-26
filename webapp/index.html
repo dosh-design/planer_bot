@@ -833,7 +833,7 @@ function doneList(title, items){
 }
 function tasksHtml(){
   const me = S.me, p = S.partner, t = todayIso(), wd = weekday(t);
-  const items = S.items.filter(i => i.kind === "task" || i.kind === "event");
+  const items = S.items.filter(i => i.kind === "task" || i.kind === "event" || i.kind === "busy");
   const chips = `<div class="filters" role="group" aria-label="Показать">${FILTERS.map(([k, n]) => `<button data-filter="${k}" aria-pressed="${doFilter === k}">${n}</button>`).join("")}</div>`;
   if (!items.length && !(S.done || []).length) return welcomeHtml(!p);
   const byDay = (a, b) => (a.day || "9") + (a.time || "") < (b.day || "9") + (b.time || "") ? -1 : 1;
@@ -842,7 +842,7 @@ function tasksHtml(){
     return chips + (done.length ? doneList("Выполнено", done) : stateHtml("i-check", "Пока ничего не закрыто", "Сделанные дела появятся здесь, их можно вернуть, если отметили по ошибке."));
   }
   if (doFilter !== "all") {
-    const pick = {today: i => !i.hot && (i.day === t || (i.kind === "task" && i.weekday === wd && !i.chore_done)),
+    const pick = {today: i => !i.hot && (i.day === t || ((i.kind === "task" && !i.chore_done) || i.kind === "busy") && i.weekday === wd),
                   late: i => i.kind === "task" && (i.hot || (i.day && i.day < t && i.weekday == null)),
                   planned: i => i.day && i.day > t}[doFilter];
     const list = items.filter(pick).sort(byDay);
@@ -852,6 +852,9 @@ function tasksHtml(){
   }
   const byHeat = (a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0);
   const todo = items.filter(i => i.kind === "task" && i.weekday == null).sort(byHeat);
+  // Занятость here too, so plans and busy time are seen on one screen: today's and upcoming one-offs, then regular.
+  const busy = items.filter(i => i.kind === "busy" && (i.weekday != null || !i.day || i.day >= t))
+    .sort((a, b) => (a.weekday != null) - (b.weekday != null) || byDay(a, b));
   const chores = items.filter(i => i.kind === "task" && i.weekday != null).sort((a, b) => (a.chore_done ? 1 : 0) - (b.chore_done ? 1 : 0));
   const ev = items.filter(i => i.kind === "event" && i.repeat !== "year"), gone = ev.filter(i => i.day && i.day < t);
   const plans = ev.filter(i => !gone.includes(i)).sort(byDay);
@@ -861,6 +864,7 @@ function tasksHtml(){
        + section("Общие дела", todo.filter(i => i.assignee == null), `<span class="ava both">${icon("i-users")}</span>`)
        + section("Обязанности по дому", chores, `<span class="ava both">${icon("i-home")}</span>`, "", "sec-chores")
        + section("Ближайшие планы", plans, `<span class="ava both">${icon("i-heart")}</span>`)
+       + section("Занятость", busy, `<span class="ava both">${icon("i-clock")}</span>`, "", "sec-busy-tasks")
        + section("Важные даты", dates, `<span class="ava both">${icon("i-gift")}</span>`, "", "sec-dates")
        + section("Прошедшие планы", gone, "", "past");
 }
@@ -1060,7 +1064,9 @@ function monthHtml(){
 // Занятость lives with the calendar: regular («каждый четверг») and one-off busy time of both, with the same cards.
 function busyHtml(){
   const t = todayIso(), me = S.me, p = S.partner;
-  const busy = S.items.filter(i => i.kind === "busy" && (i.weekday != null || !i.day || i.day >= t));
+  const shown = tab === "month" && calDay ? onDay(calDay).map(i => i.id) : [];  // already in the day's list above
+  const busy = S.items.filter(i => i.kind === "busy" && (i.weekday != null || !i.day || i.day >= t) && !shown.includes(i.id));
+  if (!busy.length && shown.some(id => findItem(id) && findItem(id).kind === "busy")) return "";
   if (!busy.length) return `<div class="note busy-list">${icon("i-clock")}<span>Занятость: напишите «по четвергам у меня футбол» или «в субботу занят с 10 до 14», и вторая половина не запланирует на это время совместное.</span></div>`;
   return `<div class="busy-list">` + section(`Занятость: ${me.name}`, busy.filter(i => i.assignee === me.id), avaFor(me.name, true), "", "sec-busy")
     + (p ? section(`Занятость: ${p.name}`, busy.filter(i => i.assignee === p.id), avaFor(p.name, false)) : "") + `</div>`;
@@ -1175,8 +1181,9 @@ document.body.addEventListener("click", async e => {
   if (m) openSheet(findItem(+m.dataset.more));
 });
 
-// «Напомнить»: minutes before the due moment; "" = at the time (the default), -1 = never. Days count from the morning.
-const REMINDS = [["", "В срок"], ["15", "За 15 минут"], ["60", "За час"], ["180", "За 3 часа"], ["1440", "За день"], ["2880", "За 2 дня"], ["10080", "За неделю"], ["-1", "Не напоминать"]];
+// «Напомнить»: minutes before the due moment; "" = at the time (the default), -1 = never, -2 = every hour that day
+// (from the morning till 21:00, until it is done). Days count from the morning.
+const REMINDS = [["", "В срок"], ["15", "За 15 минут"], ["60", "За час"], ["180", "За 3 часа"], ["1440", "За день"], ["2880", "За 2 дня"], ["10080", "За неделю"], ["-2", "Каждый час в этот день"], ["-1", "Не напоминать"]];
 const REPEATS = [["", "Не повторять"], ["day", "Каждый день"], ["week", "Каждую неделю"], ["month", "Каждый месяц"]];
 const repeatKey = it => !it.repeat ? "" : it.repeat.startsWith("month:") ? "month" : it.repeat;
 const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id)) || (S.done || []).find(i => i.id === id);
@@ -1281,11 +1288,13 @@ $("form").onsubmit = async e => {
     const it = r.items[0];
     // Stay where the line belongs: shopping in «Покупки», busy time in the calendar, project steps in their project.
     if (it.project_id) { await load(); toast(`Записал в проект «${it.project}»`, "good"); return showProject(it.project_id); }
-    tab = it.kind === "buy" ? "buy" : it.kind === "busy" ? "month" : tab === "home" || tab === "projects" ? "home" : tab === "month" ? "month" : "tasks";
+    tab = it.kind === "buy" ? "buy" : it.kind === "busy" && tab !== "tasks" ? "month" : tab === "home" || tab === "projects" ? "home" : tab === "month" ? "month" : "tasks";
     const warn = r.items.flatMap(i => i.warnings || []);
     if (warn.length) toast(clean(warn[0]), "bad", 7000);
     else if (r.items.every(i => i.existing)) toast(`Уже в списке: ${r.items.map(i => i.text).join(", ")}`, "good");
     else toast(`Записал: ${r.items.filter(i => !i.existing).map(i => i.text).join(", ")}`, "good");
+    // A filter that would hide what was just added («Сегодня» and a task for tomorrow) gives way, so it is seen.
+    if (tab === "tasks" && doFilter !== "all") doFilter = "all";
     await load();
     r.items.forEach(i => { const el = $("i" + i.id); if (el) { el.classList.add("fresh"); el.scrollIntoView({block:"nearest", behavior: smooth()}); } });
   } catch(err){ toast(err.status === 400 ? err.message : "Не сохранилось: " + err.message + " Текст остался в поле.", "bad", 6000); }

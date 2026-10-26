@@ -353,6 +353,8 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         if rb is not None and (not isinstance(rb, int) or isinstance(rb, bool) or rb not in REMIND_CHOICES):
             return False, "Не понял, когда напомнить"
         fields["remind_before"] = rb
+        if rb == db.HOURLY and not changes.get("day", row["day"]):
+            return False, "Чтобы напоминать каждый час, укажите дату"
     if "repeat" in changes:
         rep = changes["repeat"] or None
         if rep is not None and rep not in ("day", "week", "month", "year"):
@@ -404,7 +406,7 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
 
 
 # What «Напомнить» offers: at the due time, N minutes before, or N days before (from the morning of the day).
-REMIND_CHOICES = (-1, 0, 15, 60, 180, 1440, 2880, 10080)
+REMIND_CHOICES = (-2, -1, 0, 15, 60, 180, 1440, 2880, 10080)
 
 
 def _valid_day(value) -> bool:
@@ -624,6 +626,14 @@ def due(now: dt.datetime) -> list[Out]:
                 text = f"🔔 {esc(name(uid))}, заранее: {esc(row['text'])} — {esc(when_text(row, now.date()))}."
             else:
                 text = _fmt(jokes.REMIND, row, uid, now.date(), row["id"])
+            out.append(Out(uid, text, item_buttons(row)[:1]))
+    for row in db.hourly_due(now):
+        if not db.mark_hourly(row["id"], now.hour):
+            continue
+        first = row["reminded"] == 0
+        for uid in _targets(row):
+            text = (f"⏰ {esc(name(uid))}, сегодня: {esc(row['text'])}. Буду напоминать каждый час, пока не отметишь «Сделано»."
+                    if first else f"⏰ {esc(name(uid))}, ещё раз: {esc(row['text'])}. Отметь «Сделано» — и я замолчу.")
             out.append(Out(uid, text, item_buttons(row)[:1]))
     return out
 

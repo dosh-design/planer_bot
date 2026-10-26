@@ -68,7 +68,7 @@ def init() -> None:
                 last_nudge TEXT,
                 note TEXT NOT NULL DEFAULT '',  -- details the couple adds to a task
                 position INTEGER,               -- hand order inside a project stage; NULL = by date
-                remind_before INTEGER,          -- minutes before the due moment; NULL = at the time, -1 = no reminder
+                remind_before INTEGER,          -- minutes before the due moment; NULL = at the time, -1 = none, -2 = hourly that day
                 section_id INTEGER,             -- a stage of the project (project_sections.id)
                 series_id INTEGER,              -- repeating task: id of its first instance; NULL for one-offs
                 plan_day TEXT                   -- the date the series planned for this instance (a move keeps it)
@@ -648,7 +648,7 @@ def fire_at(row, morning_hour: int) -> dt.datetime | None:
     """When an item's reminder goes: its time (or the morning of its day when it has no time) minus remind_before.
     None when it has no reminder: no date, reminder off, or no time and no reminder asked for."""
     rb = row["remind_before"]
-    if not row["day"] or rb == -1 or (rb is None and not row["time"]):
+    if not row["day"] or (rb is not None and rb < 0) or (rb is None and not row["time"]):
         return None
     hh, mm = (int(x) for x in row["time"].split(":")) if row["time"] else (morning_hour, 0)
     return dt.datetime.combine(dt.date.fromisoformat(row["day"]), dt.time(hh, mm)) - dt.timedelta(minutes=rb or 0)
@@ -660,9 +660,29 @@ def due_reminders(now: dt.datetime) -> list[sqlite3.Row]:
     with closing(_connect()) as c:
         rows = c.execute(
             "SELECT * FROM items WHERE status = 'open' AND reminded = 0 AND kind IN ('task', 'event')"
-            " AND day IS NOT NULL AND day <= ? AND COALESCE(remind_before, 0) != -1"
+            " AND day IS NOT NULL AND day <= ? AND COALESCE(remind_before, 0) >= 0"
             " AND (time IS NOT NULL OR remind_before IS NOT NULL)", (horizon,)).fetchall()
     return [r for r in rows if fire_at(r, config.morning_hour) <= now]
+
+
+HOURLY = -2  # remind_before: every hour on the due day, from the morning till HOURLY_UNTIL, until it is done
+HOURLY_UNTIL = 21
+
+
+def hourly_due(now: dt.datetime) -> list[sqlite3.Row]:
+    """Items on «каждый час» whose hour has come today and not been sent yet. reminded holds the last hour sent + 1;
+    a moved date resets it (update_item), so the new day starts over."""
+    if not config.morning_hour <= now.hour <= HOURLY_UNTIL:
+        return []
+    with closing(_connect()) as c:
+        return c.execute("SELECT * FROM items WHERE status = 'open' AND kind IN ('task', 'event') AND remind_before = ?"
+                         " AND day = ? AND reminded < ?", (HOURLY, now.date().isoformat(), now.hour + 1)).fetchall()
+
+
+def mark_hourly(item_id: int, hour: int) -> bool:
+    with closing(_connect()) as c:
+        return c.execute("UPDATE items SET reminded = ? WHERE id = ? AND reminded < ?",
+                         (hour + 1, item_id, hour + 1)).rowcount == 1
 
 
 def mark_reminded(item_id: int) -> None:

@@ -211,3 +211,26 @@ async def test_bot_callbacks_after_delete_do_not_crash(couple):
     cb.data = "forget"
     await bot.cb_forget(cb)
     assert answered == ["Сначала /start", "Удалил"]
+
+
+# 26.10 from the student: «напоминать в день каждый час» until the task is done.
+def test_hourly_reminder_needs_a_date(couple):
+    rows, _ = planner.add_text(1, "Ты обещал позвонить в банк", allow_model=False)
+    assert planner.edit(1, rows[0]["id"], {"remind": -2})[1] == "Чтобы напоминать каждый час, укажите дату"
+    assert planner.edit(1, rows[0]["id"], {"day": "2026-10-25", "remind": -2}) == (True, "")
+
+
+def test_hourly_reminder_schedule_and_stop(couple):
+    rows, _ = planner.add_text(1, "Ты обещал позвонить в банк", allow_model=False)
+    iid = rows[0]["id"]
+    planner.edit(1, iid, {"day": "2026-10-25", "remind": -2})
+    got = []
+    for h in range(0, 24):
+        for m in (0, 1, 30):
+            if [o for o in planner.due(dt.datetime(2026, 10, 25, h, m)) if "банк" in o.text]:
+                got.append(h)
+        if h == 13:
+            planner.done(2, iid)
+    m = db.config.morning_hour
+    assert got == list(range(m, 14)), got  # from the morning, once an hour, silent after «Сделано»
+    assert not [o for o in planner.due(dt.datetime(2026, 10, 26, 12, 0)) if "банк" in o.text]  # only on its day
