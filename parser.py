@@ -545,12 +545,33 @@ def _parse(text: str, today: dt.date, author: str, partner: str, forwarded: str,
                                author=author, partner=partner, forwarded=fwd)
         try:
             items = from_model(_yandex(system, text), today, text)
-            if not items:  # a valid empty answer: the model saw small talk, not an errand
-                log.info("model found nothing to write down")
+            sure = _by_rules(text, today, partner, forwarded)
+            sure = [it for it in sure if it.date or it.kind == "buy" or _to_partner(text, partner)]
+            if not items:  # an empty answer is small talk, unless the rules see a clear errand (a date, a name)
+                if sure:
+                    log.info("model found nothing, the rules did")
+                return sure
+            if sure and not any(it.date for it in items) and any(it.date for it in sure):
+                return sure  # the model lost the date the phrase plainly has («день рождения сыночка 28.10»)
             return items
         except Exception as e:  # network, quota, bad JSON: the rules still give a usable answer
             log.warning("model parse failed: %s", type(e).__name__)
+    return _by_rules(text, today, partner, forwarded)
+
+
+def _to_partner(text: str, partner: str):
+    return partner and re.match(rf"\s*{re.escape(partner)}\s*,\s*(.+)", text, re.I | re.S)
+
+
+def _by_rules(text: str, today: dt.date, partner: str, forwarded: str) -> list[Parsed]:
     items = rules(text, today)
+    if m := _to_partner(text, partner):
+        # «Женя, поменяй аватарку»: said to the partner by name, so it is the partner's task, without the name
+        named = rules(m[1], today)
+        for it in named:
+            if it.who == "me":
+                it.who = "partner"
+        items = named or items
     if forwarded:  # a forwarded «я сделаю» was written by the partner
         for it in items:
             it.who = {"me": "partner", "partner": "me"}.get(it.who, it.who)

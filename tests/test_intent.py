@@ -201,3 +201,16 @@ def test_day_month_is_a_date_not_a_time():
     """«05.11» is the 5th of November, not 05:11."""
     items = parser.parse("Забрать документы 05.11", THU, allow_model=False)
     assert [(i.text, i.date, i.time) for i in items] == [("Забрать документы", "2026-11-05", None)]
+
+
+def test_empty_model_answer_keeps_a_task_said_to_the_partner_by_name(model_on, monkeypatch):
+    monkeypatch.setattr(parser, "_yandex", lambda *a: answer([]))
+    got = parser.parse("Женя , поменяй свою аватарку 🤪", THU, "Маша", "Женя")
+    assert [(i.kind, i.who, i.text) for i in got] == [("task", "partner", "Поменяй свою аватарку 🤪")]
+
+
+def test_model_losing_the_birthday_date_is_corrected(model_on, monkeypatch):
+    monkeypatch.setattr(parser, "_yandex", lambda *a: answer([{"kind": "event", "text": "День рождения нашего сыночка",
+                                                               "who": "both"}]))
+    got = parser.parse("день рождения нашего сыночка 28 октября", THU, "Маша", "Женя")
+    assert [(i.kind, i.date[5:], i.repeat) for i in got] == [("event", "10-28", "year")]

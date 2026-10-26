@@ -304,3 +304,4 @@ async def test_avatar_rejects_bad_images(client, couple, image):  # noqa: F811
     assert r.status == 400
     st = await (await client.get("/api/state", headers=H1)).json()
     assert not st["me"]["avatar"]
+
