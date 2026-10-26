@@ -1,3 +1,4 @@
+import base64
 """Regression tests for defects found in the full audit (2026-10-25) and the API's behaviour on bad input."""
 import datetime as dt
 import time
@@ -269,3 +270,37 @@ def test_emoji_in_project_step_and_edit(couple):
     assert r["text"] == "🔧 Вызвать мастера"
     assert planner.edit(1, r["id"], {"text": "🚿 Вызвать мастера"}) == (True, "")
     assert db.item(r["id"], couple)["text"] == "🚿 Вызвать мастера"
+
+
+def _jpeg(size=200):
+    raw = b"\xff\xd8\xff\xe0" + b"\0" * size + b"\xff\xd9"
+    return "data:image/jpeg;base64," + base64.b64encode(raw).decode()
+
+
+async def test_avatar_upload_is_seen_by_partner(client, couple):  # noqa: F811
+    h2 = {"X-Init-Data": init_data(2, "Дима")}
+    photo = _jpeg()
+    r = await client.post("/api/avatar", json={"image": photo}, headers=H1)
+    assert r.status == 200
+    st = await (await client.get("/api/state", headers=h2)).json()
+    assert st["partner"]["avatar"] == photo
+    st = await (await client.get("/api/state", headers=H1)).json()
+    assert st["me"]["avatar"] == photo
+    r = await client.post("/api/avatar", json={"image": None}, headers=H1)
+    assert r.status == 200
+    st = await (await client.get("/api/state", headers=h2)).json()
+    assert not st["partner"]["avatar"]
+
+
+@pytest.mark.parametrize("image", [
+    "data:image/png;base64," + base64.b64encode(b"\x89PNG....").decode(),
+    "data:image/jpeg;base64,!!!не base64!!!",
+    "data:image/jpeg;base64," + base64.b64encode(b"hello").decode(),
+    _jpeg(60000),
+    5,
+])
+async def test_avatar_rejects_bad_images(client, couple, image):  # noqa: F811
+    r = await client.post("/api/avatar", json={"image": image}, headers=H1)
+    assert r.status == 400
+    st = await (await client.get("/api/state", headers=H1)).json()
+    assert not st["me"]["avatar"]

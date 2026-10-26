@@ -3,6 +3,8 @@
 Every API call carries Telegram's signed launch data in the X-Init-Data header; the user id comes from there,
 never from the request body. Adding goes through planner.add_text, the same path as the chat.
 """
+import base64
+import binascii
 import logging
 from pathlib import Path
 
@@ -73,8 +75,8 @@ async def state(request: web.Request) -> web.Response:
     return web.json_response({
         "brand": config.brand,
         "today": today.isoformat(),  # the bot's calendar day (TZ from config), not the phone's
-        "me": {"id": uid, "name": u["name"]},
-        "partner": {"id": p["id"], "name": p["name"]} if p else None,
+        "me": {"id": uid, "name": u["name"], "avatar": u["avatar"]},
+        "partner": {"id": p["id"], "name": p["name"], "avatar": p["avatar"]} if p else None,
         "invite": invite,
         "items": [_item(r, today, names) for r in db.items(u["couple_id"])],
         # history: «Выполнено» in Дела and «Куплено недавно» in Покупки
@@ -147,6 +149,33 @@ async def settings(request: web.Request) -> web.Response:
         return _err("Такого режима нет")
     db.set_nudge_mode(request["uid"], mode)
     return web.json_response({"nudge_mode": mode})
+
+
+AVATAR_PREFIX = "data:image/jpeg;base64,"
+AVATAR_MAX_BYTES = 40 * 1024  # the app sends a 256 px JPEG, usually 10–25 KB
+
+
+def _avatar_ok(value) -> bool:
+    """Only a real, small JPEG is stored: the app shrinks the photo, anything else is refused, not trusted."""
+    if not isinstance(value, str) or not value.startswith(AVATAR_PREFIX):
+        return False
+    try:
+        raw = base64.b64decode(value[len(AVATAR_PREFIX):], validate=True)
+    except (binascii.Error, ValueError):
+        return False
+    return 0 < len(raw) <= AVATAR_MAX_BYTES and raw[:3] == b"\xff\xd8\xff" and raw[-2:] == b"\xff\xd9"
+
+
+async def avatar(request: web.Request) -> web.Response:
+    """Set (a JPEG data: URL) or remove (null) the caller's own photo. Only the caller's own: the id is from the signature."""
+    body = await _body(request)
+    if body is None or "image" not in body:
+        return _err("Пустой запрос")
+    image = body["image"]
+    if image is not None and not _avatar_ok(image):
+        return _err("Не получилось: нужна фотография JPEG до 40 КБ")
+    db.set_avatar(request["uid"], image)
+    return web.json_response({"avatar": image})
 
 
 async def undo(request: web.Request) -> web.Response:
@@ -328,6 +357,7 @@ def build_app(bot=None) -> web.Application:
     app.router.add_delete("/api/items/{id}", remove)
     app.router.add_get("/api/season", season)
     app.router.add_post("/api/settings", settings)
+    app.router.add_post("/api/avatar", avatar)
     app.router.add_post("/api/projects", project_create)
     app.router.add_get("/api/projects/{id}", project_get)
     app.router.add_patch("/api/projects/{id}", project_change)

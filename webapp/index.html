@@ -95,6 +95,9 @@ h1.solo{white-space:normal;font-size:19px;overflow-wrap:anywhere}
 .ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:800 13px/1 var(--font);
   color:#fff;border:2px solid var(--bg);background:var(--brand-fill);flex:none}
 .pair .ava + .ava{margin-left:-9px;background:var(--success)}
+.pair button.ava{cursor:pointer;padding:0}
+.ava.big{width:48px;height:48px;font-size:20px;flex:none}
+label.opt{cursor:pointer}
 .ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control);padding:0;cursor:pointer}
 .ava.wait .ic{width:16px;height:16px;stroke-width:2}
 
@@ -668,8 +671,8 @@ const shortDate = dayIso => new Date(dayIso + "T12:00").toLocaleDateString("ru-R
 
 function header(){
   const me = S.me, p = S.partner, t = todayIso();
-  $("pair").innerHTML = `<span class="ava" title="${esc(me.name)}">${initial(me.name)}</span>` +
-    (p ? `<span class="ava" title="${esc(p.name)}">${initial(p.name)}</span>`
+  $("pair").innerHTML = `<button class="ava mine" data-myphoto="1" ${photoStyle(me.avatar)} title="${esc(me.name)}" aria-label="Моё фото">${me.avatar ? "" : initial(me.name)}</button>` +
+    (p ? `<span class="ava" ${photoStyle(p.avatar)} title="${esc(p.name)}">${p.avatar ? "" : initial(p.name)}</span>`
        : `<button class="ava wait" data-share="1" title="Пригласить партнёра" aria-label="Пригласить партнёра">${icon("i-user-plus")}</button>`);
   const h = new Date().getHours(), hi = h < 5 ? "доброй ночи" : h < 12 ? "доброе утро" : h < 18 ? "добрый день" : "добрый вечер";
   $("date").textContent = new Date(t + "T12:00").toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"}) + " · " + hi;
@@ -682,7 +685,11 @@ function header(){
 }
 
 // ---------- card ----------
-const avaFor = (name, mine, cls = "") => `<span class="ava ${cls}" style="background:var(${mine ? "--brand-fill" : "--success"})">${initial(name)}</span>`;
+// A person's own photo (set by tapping one's avatar in the header), else the initial on the person's colour.
+// The photo is a JPEG data: URL checked by the server (base64 only), so it is safe inside the attribute.
+const photoStyle = (photo, color) => photo ? `style="background:center/cover no-repeat url('${photo}')"` : color ? `style="background:var(${color})"` : "";
+const photoOf = mine => mine ? S.me.avatar : S.partner && S.partner.avatar;
+const avaFor = (name, mine, cls = "") => `<span class="ava ${cls}" ${photoStyle(photoOf(mine), mine ? "--brand-fill" : "--success")}>${photoOf(mine) ? "" : initial(name)}</span>`;
 function whoHtml(it){
   if (it.kind === "buy") return "";
   if (it.assignee == null) return `<div class="who">${icon("i-users")}вместе</div>`;
@@ -906,7 +913,7 @@ function projectDates(pr){
 function projectPageHtml(){
   if (!P) return `<div class="skel"></div><div class="skel"></div>`;
   const open = P.items.filter(i => i.status === "open"), done = P.items.filter(i => i.status === "done");
-  const people = [S.me, S.partner].filter(Boolean).map((u, k) => `<span class="ava" style="background:var(${k ? "--success" : "--brand-fill"})" title="${esc(u.name)}">${initial(u.name)}</span>`).join("");
+  const people = [S.me, S.partner].filter(Boolean).map((u, k) => `<span class="ava" ${photoStyle(u.avatar, k ? "--success" : "--brand-fill")} title="${esc(u.name)}">${u.avatar ? "" : initial(u.name)}</span>`).join("");
   const stage = (title, list, sid) => `<div class="sec" id="${sid ? "stage-" + sid : "sec-steps"}"><h2>${esc(title)}</h2><span class="count">${list.length}</span>
       ${sid ? `<button class="addto" data-stage="${sid}" aria-label="Этап «${esc(title)}»: переименовать или удалить" style="margin-left:auto">${icon("p-tool")}</button>` : ""}
       <button class="addto" data-addstage="${sid || 0}" aria-label="Добавить задачу${sid ? ` в этап «${esc(title)}»` : ""}"${sid ? ' style="margin-left:0"' : ""}>${icon("i-plus")}</button></div>`
@@ -1095,6 +1102,7 @@ document.body.addEventListener("click", async e => {
     const url = "https://t.me/share/url?url=" + encodeURIComponent(S.invite) + "&text=" + encodeURIComponent("Давай вести наш семейный планер");
     return tg && initData ? tg.openTelegramLink(url) : window.open(url);
   }
+  if (e.target.closest("[data-myphoto]")) return photoSheet();
   if (!e.target.closest("#list")) return;
   const g = e.target.closest("[data-goto]");
   if (g) return goTab(g.dataset.goto);
@@ -1195,6 +1203,49 @@ const REMINDS = [["", "В срок"], ["15", "За 15 минут"], ["60", "За
 const REPEATS = [["", "Не повторять"], ["day", "Каждый день"], ["week", "Каждую неделю"], ["month", "Каждый месяц"]];
 const repeatKey = it => !it.repeat ? "" : it.repeat.startsWith("month:") ? "month" : it.repeat;
 const findItem = id => S.items.find(i => i.id === id) || (P && P.items.find(i => i.id === id)) || (S.done || []).find(i => i.id === id);
+// «Моё фото»: the picture is cut to a square and shrunk to 256 px in the phone, only that small JPEG goes to the server.
+function photoSheet(){
+  const me = S.me;
+  $("sheet-body").innerHTML = `<div class="sheet-head"><span class="ava big" ${photoStyle(me.avatar, "--brand-fill")}>${me.avatar ? "" : initial(me.name)}</span><div><b>Моё фото</b><small>Его увидите вы оба: в шапке и у ваших дел</small></div></div>
+    <label class="opt" for="photo-file">${icon("i-user")}<span>${me.avatar ? "Поменять фото" : "Выбрать фото"}</span></label>
+    <input type="file" id="photo-file" accept="image/*" hidden>
+    ${me.avatar ? `<button class="opt danger" data-nophoto="1">${icon("i-trash")}<span>Убрать фото</span></button>` : ""}
+    <button class="opt cancel" data-close="1">Отмена</button>`;
+  openSheetEl();
+  $("photo-file").onchange = async () => {
+    const f = $("photo-file").files[0]; if (!f) return;
+    let data;
+    try { data = await squareJpeg(f, 256); } catch(e){ return toast("Не получилось открыть эту картинку. Попробуйте другую.", "bad"); }
+    try { me.avatar = (await api("/api/avatar", {method:"POST", body:JSON.stringify({image:data})})).avatar; }
+    catch(err){ return toast("Не сохранилось: " + err.message, "bad"); }
+    closeSheet(); toast("Фото сохранено. Партнёр увидит его при следующем обновлении.", "good"); render();
+  };
+  $("sheet").onclick = async e => {
+    const b = e.target.closest("button");
+    if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (b && b.dataset.nophoto) {
+      try { await api("/api/avatar", {method:"POST", body:JSON.stringify({image:null})}); me.avatar = null; }
+      catch(err){ return toast("Не сохранилось: " + err.message, "bad"); }
+      closeSheet(); toast("Фото убрано.", "good"); render();
+    }
+  };
+}
+function squareJpeg(file, size){
+  return new Promise((ok, fail) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement("canvas");
+      c.width = c.height = size;
+      c.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      let q = 0.85, out = c.toDataURL("image/jpeg", q);
+      while (out.length > 50000 && q > 0.4) { q -= 0.15; out = c.toDataURL("image/jpeg", q); }  // stays under the server's 40 KB
+      ok(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error("bad image")); };
+    img.src = url;
+  });
+}
 function closeSheet(){ $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true"); syncBack(); }
 function openSheetEl(){ $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false"); syncBack(); }
 // Telegram's own «Назад» (the header arrow, Android's back key): closes the sheet, then leaves a project or the season,

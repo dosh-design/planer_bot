@@ -158,8 +158,11 @@ def init() -> None:
         # One row per planned date of a series: a retried «Сделано» cannot make the next instance twice.
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS items_series ON items(couple_id, series_id, plan_day)"
                   " WHERE series_id IS NOT NULL")
-        if "nudge_mode" not in {r[1] for r in c.execute("PRAGMA table_info(users)")}:
+        ucols = {r[1] for r in c.execute("PRAGMA table_info(users)")}
+        if "nudge_mode" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN nudge_mode TEXT NOT NULL DEFAULT 'humor'")
+        if "avatar" not in ucols:  # the person's own photo for the app, a small JPEG as a data: URL; NULL = the initial
+            c.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
         # The game counts from the day it appeared: tasks overdue before that are not the chaos's points.
         c.execute("INSERT OR IGNORE INTO kv (key, value) VALUES ('game_start', ?)", (local_now().date().isoformat(),))
 
@@ -876,6 +879,11 @@ def unlock(couple_id: int, code: str, detail: str) -> bool:
 def achievements(couple_id: int) -> dict:
     with closing(_connect()) as c:
         return {r["code"]: r for r in c.execute("SELECT * FROM game_achievements WHERE couple_id = ?", (couple_id,))}
+
+
+def set_avatar(uid: int, data_url: str | None) -> bool:
+    with closing(_connect()) as c:
+        return c.execute("UPDATE users SET avatar = ? WHERE id = ?", (data_url, uid)).rowcount == 1
 
 
 def set_nudge_mode(uid: int, mode: str) -> bool:
