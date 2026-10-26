@@ -11,6 +11,7 @@ def env(name: str, default: str = "") -> str:
 class Config:
     # Pasted from a phone the token often brings a stray space or line break along; the token itself has none.
     bot_token: str = "".join(os.environ.get("BOT_TOKEN", "").split())
+    bot_username: str = os.environ.get("BOT_USERNAME", "promise_done_bot").lstrip("@")
     brand: str = env("BRAND", "Договорились")
     slogan: str = env("SLOGAN", "Меньше бытового хаоса. Больше времени вместе.")
     data_dir: Path = Path(env("DATA_DIR", "/data"))

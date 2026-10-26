@@ -1,0 +1,13 @@
+{
+  "appId": "ru.dogovorilis.app",
+  "appName": "Договорились",
+  "webDir": "www",
+  "server": {
+    "url": "https://planerbot-rabbit2790.msk1.amvera.tech/app",
+    "cleartext": false,
+    "errorPath": "offline.html"
+  },
+  "backgroundColor": "#FFF8F0",
+  "android": { "backgroundColor": "#FFF8F0" },
+  "ios": { "backgroundColor": "#FFF8F0", "contentInset": "never" }
+}

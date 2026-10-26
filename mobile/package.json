@@ -1,0 +1,19 @@
+{
+  "name": "dogovorilis-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android and iOS shell for the «Договорились» planner: it opens the same web app as the Telegram mini-app",
+  "scripts": {
+    "sync": "cap sync",
+    "assets": "capacitor-assets generate --iconBackgroundColor '#FFF8F0' --splashBackgroundColor '#FFF8F0'"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3"
+  }
+}

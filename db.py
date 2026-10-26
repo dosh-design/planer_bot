@@ -7,7 +7,9 @@ A couple is two users joined by a one-time invite (48 hours, one use, the latest
     event — a joint plan («к маме в субботу»); it is checked against the busy days
 """
 import datetime as dt
+import hashlib
 import secrets
+import time
 import sqlite3 as _sqlite
 import sqlite3
 from contextlib import closing
@@ -145,6 +147,18 @@ def init() -> None:
                 created TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS messages_couple ON messages (couple_id, id);
+            CREATE TABLE IF NOT EXISTS logins (
+                code TEXT PRIMARY KEY,
+                created REAL NOT NULL,
+                user_id INTEGER,
+                token TEXT
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created TEXT NOT NULL,
+                platform TEXT NOT NULL DEFAULT ''
+            );
             CREATE TABLE IF NOT EXISTS activity (
                 user_id INTEGER NOT NULL,
                 day TEXT NOT NULL,
@@ -310,7 +324,9 @@ def delete_user(uid: int) -> None:
     with closing(_connect()) as c:
         c.execute("DELETE FROM users WHERE id = ?", (uid,))
         c.execute("DELETE FROM activity WHERE user_id = ?", (uid,))
-        c.execute("DELETE FROM messages WHERE author_id = ?", (uid,))  # what the person wrote in the chat is theirs
+        c.execute("DELETE FROM messages WHERE author_id = ?", (uid,))
+        c.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))  # the phone apps are signed out too
+        c.execute("DELETE FROM logins WHERE user_id = ?", (uid,))  # what the person wrote in the chat is theirs
         c.execute("DELETE FROM kv WHERE key = ?", (f"chatread:{uid}",))
         # The phrase waiting for «это что?» is the person's text; counters and hints go too.
         c.execute("DELETE FROM kv WHERE key LIKE ? OR key LIKE ? OR key LIKE ? OR key LIKE ?",
@@ -895,6 +911,59 @@ def achievements(couple_id: int) -> dict:
 def set_avatar(uid: int, data_url: str | None) -> bool:
     with closing(_connect()) as c:
         return c.execute("UPDATE users SET avatar = ? WHERE id = ?", (data_url, uid)).rowcount == 1
+
+
+# ---------- sign-in from the phone app ----------
+# The app has no Telegram launch data, so it asks for a one-time code, the person opens the bot with it
+# (t.me/bot?start=login_<code>), the bot ties the code to that Telegram account, and the app collects a session token.
+# Only the token's hash is stored: a copy of the base does not let anyone in.
+
+LOGIN_TTL = 10 * 60
+
+
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def login_start() -> str:
+    code = secrets.token_urlsafe(16)
+    with closing(_connect()) as c:
+        c.execute("DELETE FROM logins WHERE created < ?", (time.time() - LOGIN_TTL,))
+        c.execute("INSERT INTO logins (code, created) VALUES (?, ?)", (code, time.time()))
+    return code
+
+
+def login_confirm(code: str, uid: int) -> bool:
+    """The bot saw /start login_<code> from uid: a session is made, its token waits for the app."""
+    token = secrets.token_urlsafe(32)
+    with closing(_connect()) as c:
+        done = c.execute("UPDATE logins SET user_id = ?, token = ? WHERE code = ? AND user_id IS NULL AND created >= ?",
+                         (uid, token, code, time.time() - LOGIN_TTL)).rowcount == 1
+        if done:
+            c.execute("INSERT INTO sessions (token_hash, user_id, created) VALUES (?, ?, ?)", (_hash(token), uid, _stamp()))
+    return done
+
+
+def login_collect(code: str) -> str | None:
+    """The app picks up its token once; the code is spent."""
+    with closing(_connect()) as c:
+        row = c.execute("SELECT token FROM logins WHERE code = ? AND token IS NOT NULL", (code,)).fetchone()
+        if row:
+            c.execute("DELETE FROM logins WHERE code = ?", (code,))
+        return row["token"] if row else None
+
+
+def session_user(token: str) -> int | None:
+    if not token:
+        return None
+    with closing(_connect()) as c:
+        row = c.execute("SELECT user_id FROM sessions WHERE token_hash = ?", (_hash(token),)).fetchone()
+    return row["user_id"] if row else None
+
+
+def session_end(token: str) -> None:
+    with closing(_connect()) as c:
+        c.execute("DELETE FROM sessions WHERE token_hash = ?", (_hash(token),))
 
 
 # ---------- the couple's chat ----------

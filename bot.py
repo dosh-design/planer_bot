@@ -83,6 +83,12 @@ async def send(bot: Bot, outs: list[Out]) -> None:
                 break
 
 
+async def bot_username(bot: Bot) -> str:
+    if "username" not in _me:
+        _me["username"] = (await bot.get_me()).username
+    return _me["username"]
+
+
 async def invite_link(bot: Bot, uid: int, fresh: bool = False) -> str:
     """A one-time link (48 h) into the user's couple; "" when the couple is already full."""
     code = db.invite_code(uid, fresh)
@@ -112,6 +118,12 @@ async def start(msg: Message, command: CommandObject, bot: Bot) -> None:
     uid = msg.from_user.id
     db.save_user(uid, display_name(msg))
     code = (command.args or "").strip()
+    if code.startswith("login_"):  # the phone app asked to sign in with this Telegram account
+        if db.login_confirm(code[6:], uid):
+            await msg.answer("✅ Вход выполнен. Вернитесь в приложение «Договорились», оно откроется само.", reply_markup=menu())
+        else:
+            await msg.answer("Эта ссылка для входа устарела. Нажмите «Войти через Telegram» в приложении ещё раз.", reply_markup=menu())
+        return
     if code:
         result = db.join(uid, code)
         if result == "ok":

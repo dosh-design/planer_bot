@@ -333,3 +333,48 @@ async def test_chat_is_private_to_the_couple_and_goes_with_delete(client, couple
     assert (await (await client.get("/api/chat", headers=h9)).json())["messages"] == []
     db.delete_user(1)
     assert db.messages(db.user(2)["couple_id"]) == []
+
+
+async def test_phone_app_signs_in_through_the_bot(client, couple):  # noqa: F811
+    r = await (await client.post("/auth/start")).json()
+    assert r["link"].endswith("?start=login_" + r["code"])
+    assert (await (await client.get("/auth/poll", params={"code": r["code"]})).json()) == {"waiting": True}
+    assert db.login_confirm(r["code"], 1)
+    assert not db.login_confirm(r["code"], 2)  # one code, one person
+    token = (await (await client.get("/auth/poll", params={"code": r["code"]})).json())["token"]
+    assert (await (await client.get("/auth/poll", params={"code": r["code"]})).json()) == {"waiting": True}  # spent
+    h = {"Authorization": "Bearer " + token}
+    st = await (await client.get("/api/state", headers=h)).json()
+    assert st["me"]["id"] == 1 and st["partner"]["name"] == "Дима"  # the same account: the couple is already there
+    assert (await client.get("/api/state", headers={"Authorization": "Bearer nope"})).status == 401
+    await client.post("/auth/logout", headers=h)
+    assert (await client.get("/api/state", headers=h)).status == 401
+
+
+async def test_app_sessions_end_with_delete(client, couple):  # noqa: F811
+    code = db.login_start()
+    db.login_confirm(code, 1)
+    token = db.login_collect(code)
+    db.delete_user(1)
+    assert (await client.get("/api/state", headers={"Authorization": "Bearer " + token})).status == 401
+
+
+def test_expired_login_code_is_refused(monkeypatch):
+    code = db.login_start()
+    later = time.time() + db.LOGIN_TTL + 5
+    monkeypatch.setattr(db.time, "time", lambda: later)
+    assert not db.login_confirm(code, 1)
+
+
+
+async def test_bot_confirms_app_login(couple):
+    import bot
+    from types import SimpleNamespace
+    from test_bot import FakeBot, message
+    code = db.login_start()
+    m = message(1, "Маша", "/start login_" + code)
+    await bot.start(m, SimpleNamespace(args="login_" + code), FakeBot())
+    assert "Вход выполнен" in m.answers[0][0] and db.login_collect(code)
+    m = message(1, "Маша", "/start login_old")
+    await bot.start(m, SimpleNamespace(args="login_old"), FakeBot())
+    assert "устарела" in m.answers[0][0]

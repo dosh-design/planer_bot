@@ -1,0 +1,43 @@
+# Store builds. Codemagic (codemagic.io, free tier) builds both apps in the cloud, so no Mac is needed.
+# Before the first run, in Codemagic: connect this repository, then add
+#   Android: a keystore under Code signing identities named "dogovorilis_keystore";
+#   iOS: an App Store Connect API key named "dogovorilis_asc" (needs the paid Apple Developer account).
+workflows:
+  android-release:
+    name: Android (RuStore / Google Play)
+    working_directory: mobile
+    environment:
+      node: 22
+      java: 21
+      android_signing:
+        - dogovorilis_keystore
+    scripts:
+      - npm ci
+      - npx cap sync android
+      - cd android && ./gradlew bundleRelease assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/**/*.apk
+
+  ios-release:
+    name: iOS (TestFlight / App Store)
+    working_directory: mobile
+    environment:
+      node: 22
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: ru.dogovorilis.app
+    integrations:
+      app_store_connect: dogovorilis_asc
+    scripts:
+      - npm ci
+      - npx cap sync ios
+      - xcode-project use-profiles
+      - xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

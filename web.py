@@ -31,8 +31,13 @@ def _err(text: str, status: int = 400) -> web.Response:
 @web.middleware
 async def auth(request: web.Request, handler):
     if request.path.startswith("/api/"):
-        # The header carries Telegram.WebApp.initData as is (a query string); verify() decodes it once.
+        # Telegram: the header carries Telegram.WebApp.initData as is (a query string); verify() decodes it once.
+        # The phone app: «Authorization: Bearer <token>» from the sign-in through the bot (/auth/*).
         user = webapp_auth.verify(request.headers.get("X-Init-Data", ""), config.bot_token)
+        bearer = request.headers.get("Authorization", "")
+        sid = db.session_user(bearer[7:].strip()) if not user and bearer.startswith("Bearer ") else None
+        if sid and db.user(sid):
+            user = {"id": sid}
         if not user:
             return _err("Откройте планер из Telegram-бота.", 401)
         uid = int(user["id"])
@@ -368,6 +373,30 @@ async def section_remove(request: web.Request) -> web.Response:
     return web.json_response({"project": _project_json(request, pid)})
 
 
+async def auth_start(request: web.Request) -> web.Response:
+    """The phone app's sign-in: a one-time code and the bot link to confirm it."""
+    code = db.login_start()
+    bot = request.app.get(BOT)
+    name = await chat.bot_username(bot) if bot else config.bot_username
+    return web.json_response({"code": code, "link": f"https://t.me/{name}?start=login_{code}", "ttl": db.LOGIN_TTL})
+
+
+async def auth_poll(request: web.Request) -> web.Response:
+    token = db.login_collect(request.query.get("code", ""))
+    return web.json_response({"token": token} if token else {"waiting": True})
+
+
+async def auth_logout(request: web.Request) -> web.Response:
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        db.session_end(bearer[7:].strip())
+    return web.json_response({"ok": True})
+
+
+async def privacy(_):
+    return web.FileResponse(STATIC / "privacy.html", headers={"Cache-Control": "no-cache"})
+
+
 async def page(_):
     return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
@@ -382,7 +411,12 @@ def build_app(bot=None) -> web.Application:
         app[BOT] = bot
     app.router.add_get("/", page)
     app.router.add_get("/tg", page)
+    app.router.add_get("/app", page)  # the Android / iOS shell opens this
     app.router.add_get("/health", health)
+    app.router.add_get("/privacy", privacy)
+    app.router.add_post("/auth/start", auth_start)
+    app.router.add_get("/auth/poll", auth_poll)
+    app.router.add_post("/auth/logout", auth_logout)
     app.router.add_get("/api/state", state)
     app.router.add_post("/api/add", add)
     app.router.add_post("/api/items/{id}/done", done)

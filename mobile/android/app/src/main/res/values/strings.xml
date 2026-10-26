@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Договорились</string>
+    <string name="title_activity_main">Договорились</string>
+    <string name="package_name">ru.dogovorilis.app</string>
+    <string name="custom_url_scheme">ru.dogovorilis.app</string>
+</resources>

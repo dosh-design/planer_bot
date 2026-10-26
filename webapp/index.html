@@ -589,9 +589,11 @@ class ApiError extends Error { constructor(msg, status){ super(msg); this.status
 async function api(path, opts={}){
   if (DEMO) return demoApi(path, opts);
   let r;
-  try { r = await fetch(path, {...opts, headers:{"Content-Type":"application/json","X-Init-Data":initData}}); }
+  const auth = initData ? {"X-Init-Data": initData} : {"Authorization": "Bearer " + store.get("token")};
+  try { r = await fetch(path, {...opts, headers:{"Content-Type":"application/json", ...auth}}); }
   catch(e){ throw new ApiError("Нет связи с сервером. Проверьте интернет.", 0); }
   const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && !initData) { store.set("token", ""); showLogin(); throw new ApiError("Войдите снова", 401); }
   if (!r.ok) throw new ApiError(data.error || "Сервер ответил ошибкой. Попробуйте ещё раз.", r.status);
   return data;
 }
@@ -659,9 +661,40 @@ function showFatal(e){
       : stateHtml("i-alert", "Не удалось загрузить планер", esc(e.message) + " Если повторится, напишите боту /help.", retry, true);
 }
 
+// ---------- sign-in outside Telegram (the Android / iOS app, a plain browser) ----------
+// The same Telegram account: the bot confirms who it is, so the couple, the tasks and the chat are all already there.
+let loginTimer = null;
+function showLogin(){
+  clearInterval(loginTimer);
+  $("hello").textContent = "Договорились"; $("date").textContent = "Меньше бытового хаоса. Больше времени вместе.";
+  $("pair").innerHTML = ""; $("summary").innerHTML = ""; $("invite").innerHTML = "";
+  $("tabs").hidden = true; $("composer").hidden = true;
+  $("list").innerHTML = stateHtml("i-lock", "Вход через Telegram",
+    "Нажмите кнопку: откроется наш бот, в нём нажмите «Запустить» и возвращайтесь. Все ваши дела, покупки и пара уже будут здесь.",
+    `<button class="btn" data-login="1">Войти через Telegram</button>`);
+}
+async function startLogin(){
+  let r;
+  try { r = await (await fetch("/auth/start", {method:"POST"})).json(); }
+  catch(e){ return toast("Нет связи с сервером. Проверьте интернет.", "bad"); }
+  // the app's web view hands t.me to the system, which opens Telegram itself
+  if (!window.open(r.link, "_blank")) location.href = r.link;
+  $("list").innerHTML = stateHtml("i-clock", "Ждём подтверждения в Telegram",
+    "Нажмите «Запустить» в чате с ботом и вернитесь сюда.", `<button class="btn ghost" data-login="1">Открыть Telegram ещё раз</button>`);
+  const until = Date.now() + r.ttl * 1000;
+  clearInterval(loginTimer);
+  loginTimer = setInterval(async () => {
+    if (Date.now() > until) { clearInterval(loginTimer); return showLogin(); }
+    try {
+      const p = await (await fetch("/auth/poll?code=" + encodeURIComponent(r.code))).json();
+      if (p.token) { clearInterval(loginTimer); store.set("token", p.token); load(true); }
+    } catch(e){}
+  }, 2000);
+}
+
 async function load(first){
   if (first) showLoading();
-  if (!initData && !DEMO) return showFatal(new ApiError("", 401));
+  if (!initData && !DEMO && !store.get("token")) return showLogin();
   try { S = await api("/api/state"); }
   catch(e){ if (first || !S) return showFatal(e); return toast(e.message, "bad"); }
   if (openProject) await reloadProject();
@@ -1144,6 +1177,7 @@ function goTab(name){ tab = name; openSeason = false; closeChat(); if (name !== 
 const DONE_LINES = ["Опа. Человек слова!", "Готово, как договорились.", "Готово. Вторая половина уже в курсе."];
 document.body.addEventListener("click", async e => {
   if (e.target.closest("[data-retry]")) return load(true);
+  if (e.target.closest("[data-login]")) return startLogin();
   if (e.target.closest("[data-close-app]")) return tg && tg.close();
   if (e.target.closest("[data-share]")) {
     if (!S || !S.invite) return toast("Ссылка пока не готова, обновите планер.", "bad");
@@ -1259,6 +1293,7 @@ function photoSheet(){
     <label class="opt" for="photo-file">${icon("i-user")}<span>${me.avatar ? "Поменять фото" : "Выбрать фото"}</span></label>
     <input type="file" id="photo-file" accept="image/*" hidden>
     ${me.avatar ? `<button class="opt danger" data-nophoto="1">${icon("i-trash")}<span>Убрать фото</span></button>` : ""}
+    ${!initData && store.get("token") ? `<button class="opt" data-logout="1">${icon("i-left")}<span>Выйти из аккаунта на этом телефоне</span></button>` : ""}
     <button class="opt cancel" data-close="1">Отмена</button>`;
   openSheetEl();
   $("photo-file").onchange = async () => {
@@ -1272,6 +1307,10 @@ function photoSheet(){
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (b && b.dataset.logout) {
+      try { await fetch("/auth/logout", {method:"POST", headers:{"Authorization": "Bearer " + store.get("token")}}); } catch(err){}
+      store.set("token", ""); closeSheet(); S = null; return showLogin();
+    }
     if (b && b.dataset.nophoto) {
       try { await api("/api/avatar", {method:"POST", body:JSON.stringify({image:null})}); me.avatar = null; }
       catch(err){ return toast("Не сохранилось: " + err.message, "bad"); }
