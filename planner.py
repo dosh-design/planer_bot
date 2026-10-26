@@ -212,9 +212,16 @@ def add_parsed(uid: int, parsed: list, project_id: int | None = None) -> tuple[l
         fresh.append(rows[-1])
     if fresh:
         db.touch(uid)
-    if p:  # the partner hears only about what was really created now
+    if p:  # the partner hears only about what was really created now, about every new record, at once
+        own = []
         for r in fresh:
-            notes += assigned_notes(uid, r)
+            got = assigned_notes(uid, r)
+            notes += got
+            if not got and r["kind"] != "buy":
+                own.append(r)
+        if own:  # her own tasks and busy time: one short line, so the partner sees the whole picture without a ping per step
+            what = "занятость" if all(r["kind"] == "busy" for r in own) else "себе"
+            notes.append(Out(p["id"], f"📝 {esc(u['name'])} записал(а) {what}:\n" + "\n".join(line(r) for r in own)))
         buys = [r for r in fresh if r["kind"] == "buy"]
         if buys:
             notes.append(Out(p["id"], f"🛒 {esc(u['name'])} добавил(а) в покупки: "

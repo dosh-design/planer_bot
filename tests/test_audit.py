@@ -234,3 +234,21 @@ def test_hourly_reminder_schedule_and_stop(couple):
     m = db.config.morning_hour
     assert got == list(range(m, 14)), got  # from the morning, once an hour, silent after «Сделано»
     assert not [o for o in planner.due(dt.datetime(2026, 10, 26, 12, 0)) if "банк" in o.text]  # only on its day
+
+
+# 26.10 from the student: the partner hears about every new record at once, not only what lands on them.
+@pytest.mark.parametrize("phrase, head", [("Мне надо позвонить в банк завтра", "записал(а) себе"),
+                                          ("В субботу у меня баня с 10 до 14", "записал(а) занятость"),
+                                          ("Ты обещал вкрутить лампочку", "записал(а) на тебя"),
+                                          ("Купить молоко", "добавил(а) в покупки")])
+def test_partner_hears_about_every_new_record(couple, phrase, head):
+    rows, notes = planner.add_text(1, phrase, allow_model=False)
+    to_partner = [n.text for n in notes if n.chat_id == 2]
+    assert rows and len(to_partner) == 1 and head in to_partner[0]
+    _, again = planner.add_text(1, "Купить молоко", allow_model=False) if "молоко" in phrase.lower() else (None, [])
+    assert not again  # the same purchase again is not new: no second ping
+
+
+def test_project_steps_come_as_one_message(couple):
+    _, notes = planner.add_text(1, "Ремонт кухни: купить плитку, вызвать мастера, выбрать цвет", allow_model=False)
+    assert len([n for n in notes if n.chat_id == 2]) == 1
