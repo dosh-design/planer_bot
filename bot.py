@@ -116,7 +116,7 @@ async def start(msg: Message, command: CommandObject, bot: Bot) -> None:
         result = db.join(uid, code)
         if result == "ok":
             p = db.partner(uid)
-            await msg.answer(f"🎉 Готово, вы в паре с {esc(p['name'])}. Теперь всё, что пообещано, будет записано.\n\n{HELP}",
+            await msg.answer(f"🎉 Готово, вы в паре с {esc(p['name'])}. Теперь всё, что вы обещали сделать, будет записано.\n\n{HELP}",
                              reply_markup=menu())
             await send(bot, [Out(p["id"], f"🎉 {esc(display_name(msg))} теперь в вашем планере. Отговорки кончились.")])
             return
@@ -194,7 +194,7 @@ async def tasks(msg: Message) -> None:
     db.roll_yearly(db.local_now().date())
     rows = [r for r in db.items(u["couple_id"]) if r["kind"] in ("task", "event")]
     if not rows:
-        await msg.answer("Дел нет. Подозрительно. Наговори голосом, что обещали на этой неделе.")
+        await msg.answer("Дел нет. Подозрительно. Наговори голосом, что обещали сделать на этой неделе.")
         return
     today = db.local_now().date()
     p = db.partner(u["id"])
