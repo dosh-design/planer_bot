@@ -77,7 +77,7 @@ def test_day_month_is_a_date_not_a_time():
 
 def test_times_with_colon_or_impossible_month():
     [it] = parser.parse("забрать посылку в 18:30", THU)
-    assert it.time == "18:30" and it.date is None
+    assert it.time == "18:30" and it.date == THU.isoformat()  # a time alone means today
     [it] = parser.parse("в 18.30 созвон с мамой", THU)
     assert it.time == "18:30" and it.text == "Созвон с мамой"
     [it] = parser.parse("в 10.11 едем к маме", THU)  # 11 can be a month: a date, no time invented

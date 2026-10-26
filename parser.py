@@ -536,7 +536,11 @@ def parse(text: str, today: dt.date, author: str = "я", partner: str = "пар�
     text = strip_greeting(text)
     if not text or intent(text, today) != "do":
         return []
-    return with_emoji(emoji, _parse(text, today, author, partner, forwarded, allow_model))
+    items = _parse(text, today, author, partner, forwarded, allow_model)
+    for it in items:  # «фотосессия в 12:00» with no day means today: a time always comes with its date
+        if it.time and not it.date and it.weekly is None:
+            it.date = today.isoformat()
+    return with_emoji(emoji, items)
 
 
 def _parse(text: str, today: dt.date, author: str, partner: str, forwarded: str, allow_model: bool) -> list[Parsed]:
@@ -587,8 +591,8 @@ def human_time(time: str | None, end: str | None = None) -> str:
 
 
 def human_date(day: str | None, time: str | None = None, today: dt.date | None = None, end: str | None = None) -> str:
-    if not day:
-        return human_time(time, end)
+    if not day:  # a time with no day at all (old records): say so, a bare «в 12:00» reads as «which day?»
+        return f"дата не указана, {human_time(time, end)}" if time else ""
     d = dt.date.fromisoformat(day)
     today = today or dt.date.today()
     delta = (d - today).days
