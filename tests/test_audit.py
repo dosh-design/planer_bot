@@ -252,3 +252,20 @@ def test_partner_hears_about_every_new_record(couple, phrase, head):
 def test_project_steps_come_as_one_message(couple):
     _, notes = planner.add_text(1, "Ремонт кухни: купить плитку, вызвать мастера, выбрать цвет", allow_model=False)
     assert len([n for n in notes if n.chat_id == 2]) == 1
+
+
+# 26.10 from the student: emoji in task titles. A leading emoji does not change how the phrase is read.
+@pytest.mark.parametrize("phrase, kind, text", [("🎂 Купить торт", "buy", "🎂 Торт"),
+                                               ("🧹 пропылесосить в субботу", "task", "🧹 Пропылесосить"),
+                                               ("👨‍👩‍👧 В воскресенье едем к маме", "event", "👨‍👩‍👧 Едем к маме")])
+def test_leading_emoji_is_kept_and_does_not_confuse(couple, phrase, kind, text):
+    r, = planner.add_text(1, phrase, allow_model=False)[0]
+    assert (r["kind"], r["text"]) == (kind, text)
+
+
+def test_emoji_in_project_step_and_edit(couple):
+    pid, _ = planner.create_project(1, "Ремонт")
+    r = planner.add_to_project(1, pid, "🔧 вызвать мастера")[0][0]
+    assert r["text"] == "🔧 Вызвать мастера"
+    assert planner.edit(1, r["id"], {"text": "🚿 Вызвать мастера"}) == (True, "")
+    assert db.item(r["id"], couple)["text"] == "🚿 Вызвать мастера"

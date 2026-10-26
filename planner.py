@@ -554,8 +554,9 @@ def add_to_project(uid: int, project_id: int, text: str, who: str = "me",
         return [], [], "Напишите шаг"
     if parser.intent(text, today) == "chat":
         return [], [], "Это не похоже на шаг проекта. Напишите, что сделать."
-    parsed = [it for it in parser.rules(text, today, in_project=True) if it.kind == "task"] or \
-        [parser.Parsed("task", text[:1].upper() + text[1:])]
+    emoji, rest = parser.split_emoji(text)
+    parsed = parser.with_emoji(emoji, [it for it in parser.rules(rest, today, in_project=True) if it.kind == "task"]
+                               or [parser.Parsed("task", rest[:1].upper() + rest[1:])])
     if section_id is not None and (not (sec := db.section(section_id, cid)) or sec["project_id"] != project_id):
         return [], [], "Этап не найден"
     for it in parsed:

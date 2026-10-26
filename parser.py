@@ -510,13 +510,35 @@ def _is_hhmm(value) -> bool:
     return isinstance(value, str) and bool(re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value))
 
 
+# A leading emoji is the couple's own label («🎂 Купить торт»): it is set aside while the phrase is read,
+# so «🎂 Купить торт» is still a purchase, and put back in front of what is saved.
+_EMOJI = re.compile(r"^\s*((?:[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF][\uFE0F\u200D\U0001F3FB-\U0001F3FF]*)+)\s*")
+
+
+def split_emoji(text: str) -> tuple[str, str]:
+    m = _EMOJI.match(text)
+    return (m.group(1), text[m.end():]) if m and text[m.end():].strip() else ("", text)
+
+
+def with_emoji(emoji: str, items: list) -> list:
+    if emoji:
+        for it in items:
+            it.text = f"{emoji} {it.text}"
+    return items
+
+
 def parse(text: str, today: dt.date, author: str = "я", partner: str = "партнёр", forwarded: str = "",
           allow_model: bool = True) -> list[Parsed]:
     """Blocking when the model is on: async callers go through planner.add_text_async.
     forwarded: the partner's name when the message is the partner's own words forwarded by the author."""
-    text = strip_greeting(text.strip()[:1000])
+    emoji, text = split_emoji(text.strip()[:1000])
+    text = strip_greeting(text)
     if not text or intent(text, today) != "do":
         return []
+    return with_emoji(emoji, _parse(text, today, author, partner, forwarded, allow_model))
+
+
+def _parse(text: str, today: dt.date, author: str, partner: str, forwarded: str, allow_model: bool) -> list[Parsed]:
     if config.ai_enabled and allow_model:
         fwd = f"\nЭто пересланное сообщение от {forwarded}: «я» в нём — {forwarded}." if forwarded else ""
         system = PROMPT.format(today=today.isoformat(), weekday=WD_FULL[today.weekday()],

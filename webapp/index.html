@@ -391,6 +391,9 @@ main{animation:in var(--base) var(--ease)}
 .edit textarea,.edit select{font:500 16px/1.3 var(--font);color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);
   min-height:44px;padding:var(--s2) var(--s3);width:100%;min-width:0;color-scheme:light dark}
 .edit textarea{min-height:72px;resize:vertical}
+.emojis{display:flex;flex-wrap:wrap;gap:6px}
+.emojis button{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-size:21px;line-height:1;cursor:pointer;padding:0}
+.tile.emo{font-size:22px;line-height:1}
 .filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 var(--s2);margin:0 calc(-1 * var(--s1));scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
 .filters button{flex:none;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font:700 13px/1 var(--font);min-height:36px;padding:0 var(--s3);border-radius:var(--r-full);cursor:pointer}
@@ -711,9 +714,14 @@ function cardHtml(it){
   const tick = it.kind === "busy" ? "" : `<button class="tick" data-done="${it.id}" aria-label="${it.kind === "buy" ? "Куплено" : "Сделано"}: ${esc(it.text)}"><i>${icon("i-check")}</i></button>`;
   const past = it.kind === "event" && it.day && it.day < todayIso();
   return `<div class="card k-${it.kind}${it.chore_done ? " done" : ""}${it.hot ? " hot" : ""}${isLate(it) ? " late" : ""}${past ? " past" : ""}" id="i${it.id}" data-more="${it.id}">
-    <span class="tile">${icon(pic(it))}</span>
-    <div class="body"><div class="title">${esc(it.text)}</div>${dueHtml(it)}${whoHtml(it)}${tagHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
+    ${tileHtml(it)}
+    <div class="body"><div class="title">${esc(splitEmoji(it.text)[1])}</div>${dueHtml(it)}${whoHtml(it)}${tagHtml(it)}${warnHtml(it)}</div>${tick}</div>`;
 }
+// The couple's own emoji in front of a title («🎂 Испечь торт») takes the place of the picture on the card.
+const EMOJI_LEAD = /^((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:\uFE0F|\u200D(?:\p{Extended_Pictographic})|[\u{1F3FB}-\u{1F3FF}])*)\s*/u;
+const splitEmoji = t => { const m = String(t || "").match(EMOJI_LEAD); return m && t.slice(m[0].length).trim() ? [m[1], t.slice(m[0].length)] : ["", t]; };
+const tileHtml = it => { const e = splitEmoji(it.text)[0]; return e ? `<span class="tile emo" aria-hidden="true">${esc(e)}</span>` : `<span class="tile">${icon(pic(it))}</span>`; };
+const EMOJIS = ["🏠", "🧹", "🛒", "🍳", "🧺", "🔧", "💡", "🚗", "💳", "💊", "🐱", "🐶", "👶", "🎂", "🎁", "❤️", "✈️", "📚", "🏃", "🌱"];
 // A project task shown outside its project says which one; a note shows as a mark, its text is in the sheet.
 function tagHtml(it){
   const out = [];
@@ -1220,6 +1228,7 @@ function openSheet(it){
   const dated = it.kind !== "buy" && it.weekday == null;
   const form = `<form class="edit" id="edit" hidden>
       <label>Название<input name="text" maxlength="300" value="${esc(it.text)}" autocomplete="off"></label>
+      <div class="emojis" role="group" aria-label="Эмодзи в начале названия">${EMOJIS.map(e => `<button type="button" data-emoji="${e}">${e}</button>`).join("")}<button type="button" data-emoji="" aria-label="Без эмодзи">✕</button></div>
       ${dated ? `<div class="row"><label>Дата<input type="date" name="day" value="${esc(it.day || "")}"></label><label>С<input type="time" name="time" value="${esc(it.time || "")}"></label><label>До<input type="time" name="end" value="${esc(it.end || "")}"></label></div>
       <div class="row two"><label>Напомнить<select name="remind">${REMINDS.map(([v, n]) => `<option value="${v}"${String(it.remind ?? "") === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>
         ${it.repeat === "year" ? "" : `<label>Повтор<select name="repeat">${REPEATS.map(([v, n]) => `<option value="${v}"${repeatKey(it) === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>`}</div>` : ""}
@@ -1227,9 +1236,14 @@ function openSheet(it){
       ${it.kind !== "buy" ? `<label>Заметка<textarea name="note" maxlength="2000" placeholder="Детали, ссылки, размеры…">${esc(it.note || "")}</textarea></label>` : ""}
       <div class="err" id="edit-err" role="alert"></div>
       <button class="btn" type="submit">Сохранить</button></form>`;
-  $("sheet-body").innerHTML = `<div class="sheet-head"><span class="tile">${icon(pic(it))}</span><div><b>${esc(it.text)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div></div>`
+  $("sheet-body").innerHTML = `<div class="sheet-head">${tileHtml(it)}<div><b>${esc(splitEmoji(it.text)[1])}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div></div>`
     + (it.warnings || []).map(w => `<div class="warn" style="margin:var(--s2) 0">${icon("i-alert")}<span>${warnLabel(clean(w))}</span></div>`).join("")
     + form + rows.join("");
+  $("edit").querySelector(".emojis").onclick = e => {  // puts the chosen emoji in front of the title, or takes it off
+    const b = e.target.closest("[data-emoji]"); if (!b) return;
+    const inp = $("edit").text, rest = splitEmoji(inp.value)[1].trim();
+    inp.value = b.dataset.emoji ? `${b.dataset.emoji} ${rest}` : rest;
+  };
   $("edit").onsubmit = async e => {
     e.preventDefault();
     const f = new FormData($("edit")), body = {text: f.get("text")};
