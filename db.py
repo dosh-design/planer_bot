@@ -137,6 +137,14 @@ def init() -> None:
                 detail TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (couple_id, code)
             );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                couple_id INTEGER NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+                author_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS messages_couple ON messages (couple_id, id);
             CREATE TABLE IF NOT EXISTS activity (
                 user_id INTEGER NOT NULL,
                 day TEXT NOT NULL,
@@ -288,6 +296,7 @@ def _join(c: _sqlite.Connection, uid: int, code: str) -> str:
         # Stages move with their projects: the old couple's row is deleted below and would take them along.
         c.execute("UPDATE project_sections SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         c.execute("UPDATE items SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
+        c.execute("UPDATE messages SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         # The score and achievements of the one who started alone join the couple's; the rest goes with the old couple.
         for table in ("game_events", "game_matches", "game_achievements"):
             c.execute(f"UPDATE OR IGNORE {table} SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
@@ -301,6 +310,8 @@ def delete_user(uid: int) -> None:
     with closing(_connect()) as c:
         c.execute("DELETE FROM users WHERE id = ?", (uid,))
         c.execute("DELETE FROM activity WHERE user_id = ?", (uid,))
+        c.execute("DELETE FROM messages WHERE author_id = ?", (uid,))  # what the person wrote in the chat is theirs
+        c.execute("DELETE FROM kv WHERE key = ?", (f"chatread:{uid}",))
         # The phrase waiting for «это что?» is the person's text; counters and hints go too.
         c.execute("DELETE FROM kv WHERE key LIKE ? OR key LIKE ? OR key LIKE ? OR key LIKE ?",
                   (f"pending:{uid}", f"solo_hint:{uid}", f"ai:{uid}:%", f"voice:{uid}:%"))
@@ -884,6 +895,38 @@ def achievements(couple_id: int) -> dict:
 def set_avatar(uid: int, data_url: str | None) -> bool:
     with closing(_connect()) as c:
         return c.execute("UPDATE users SET avatar = ? WHERE id = ?", (data_url, uid)).rowcount == 1
+
+
+# ---------- the couple's chat ----------
+
+CHAT_MAX = 2000  # characters in one message
+
+
+def add_message(couple_id: int, author_id: int, text: str) -> sqlite3.Row:
+    with closing(_connect()) as c:
+        mid = c.execute("INSERT INTO messages (couple_id, author_id, text, created) VALUES (?, ?, ?, ?)",
+                        (couple_id, author_id, text[:CHAT_MAX], local_now().strftime("%Y-%m-%d %H:%M:%S"))).lastrowid
+        return c.execute("SELECT * FROM messages WHERE id = ?", (mid,)).fetchone()
+
+
+def messages(couple_id: int, after: int = 0, limit: int = 200) -> list[sqlite3.Row]:
+    """The latest `limit` messages newer than `after`, oldest first."""
+    with closing(_connect()) as c:
+        rows = c.execute("SELECT * FROM messages WHERE couple_id = ? AND id > ? ORDER BY id DESC LIMIT ?",
+                         (couple_id, after, limit)).fetchall()
+    return rows[::-1]
+
+
+def chat_unread(couple_id: int, uid: int) -> int:
+    seen = int(kv_get(f"chatread:{uid}") or 0)
+    with closing(_connect()) as c:
+        return c.execute("SELECT COUNT(*) FROM messages WHERE couple_id = ? AND author_id != ? AND id > ?",
+                         (couple_id, uid, seen)).fetchone()[0]
+
+
+def chat_seen(uid: int, last_id: int) -> None:
+    if last_id > int(kv_get(f"chatread:{uid}") or 0):
+        kv_set(f"chatread:{uid}", str(last_id))
 
 
 def set_nudge_mode(uid: int, mode: str) -> bool:

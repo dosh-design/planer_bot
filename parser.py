@@ -11,6 +11,7 @@ import logging
 import re
 from dataclasses import asdict, dataclass
 
+import names
 from config import config
 
 log = logging.getLogger(__name__)
@@ -560,14 +561,14 @@ def _parse(text: str, today: dt.date, author: str, partner: str, forwarded: str,
 
 
 def _to_partner(text: str, partner: str):
-    return partner and re.match(rf"\s*{re.escape(partner)}\s*,\s*(.+)", text, re.I | re.S)
+    return names.leading_name(text, partner) if partner else None
 
 
 def _by_rules(text: str, today: dt.date, partner: str, forwarded: str) -> list[Parsed]:
     items = rules(text, today)
     if m := _to_partner(text, partner):
         # «Женя, поменяй аватарку»: said to the partner by name, so it is the partner's task, without the name
-        named = rules(m[1], today)
+        named = rules(m, today)
         for it in named:
             if it.who == "me":
                 it.who = "partner"

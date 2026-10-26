@@ -214,3 +214,17 @@ def test_model_losing_the_birthday_date_is_corrected(model_on, monkeypatch):
                                                                "who": "both"}]))
     got = parser.parse("день рождения нашего сыночка 28 октября", THU, "Маша", "Женя")
     assert [(i.kind, i.date[5:], i.repeat) for i in got] == [("event", "10-28", "year")]
+
+
+@pytest.mark.parametrize("phrase, partner", [
+    ("Женечка, поменяй свою аватарку", "Евгения"), ("Женя, купи хлеб", "Евгений"), ("Машуль, позвони маме", "Мария"),
+    ("Димон, вынеси мусор", "Дмитрий"), ("Саня! забери посылку", "Александр"), ("Заринка, полей цветы", "Зарина"),
+])
+def test_partner_called_by_a_pet_name(phrase, partner):
+    [it] = parser.parse(phrase, THU, "Я", partner, allow_model=False)
+    assert it.who == "partner" and not it.text.lower().startswith(phrase.split(",")[0].split("!")[0].lower())
+
+
+def test_other_words_are_not_names():
+    import names
+    assert not names.is_name("Мама", "Мария") and not names.is_name("Купи", "Кира") and not names.is_name("Сосед", "Софья")

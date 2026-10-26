@@ -78,6 +78,7 @@ async def state(request: web.Request) -> web.Response:
         "me": {"id": uid, "name": u["name"], "avatar": u["avatar"]},
         "partner": {"id": p["id"], "name": p["name"], "avatar": p["avatar"]} if p else None,
         "invite": invite,
+        "chat_unread": db.chat_unread(u["couple_id"], uid),
         "items": [_item(r, today, names) for r in db.items(u["couple_id"])],
         # history: «Выполнено» in Дела and «Куплено недавно» in Покупки
         "done": [_item(r, today, names) for r in db.done_items(u["couple_id"], "task", 60)]
@@ -176,6 +177,40 @@ async def avatar(request: web.Request) -> web.Response:
         return _err("Не получилось: нужна фотография JPEG до 40 КБ")
     db.set_avatar(request["uid"], image)
     return web.json_response({"avatar": image})
+
+
+def _msg(r) -> dict:
+    return {"id": r["id"], "author": r["author_id"], "text": r["text"], "at": r["created"]}
+
+
+async def chat_get(request: web.Request) -> web.Response:
+    """The couple's chat; ?after=<id> gives only what is newer (the app polls with it). Reading marks it seen."""
+    u = db.user(request["uid"])
+    try:
+        after = max(0, int(request.query.get("after", 0)))
+    except ValueError:
+        after = 0
+    rows = db.messages(u["couple_id"], after)
+    if rows:
+        db.chat_seen(request["uid"], rows[-1]["id"])
+    return web.json_response({"messages": [_msg(r) for r in rows]})
+
+
+async def chat_post(request: web.Request) -> web.Response:
+    body = await _body(request)
+    text = body.get("text") if body else None
+    if not isinstance(text, str) or not text.strip():
+        return _err("Пустое сообщение")
+    if len(text) > db.CHAT_MAX:
+        return _err(f"Слишком длинно: до {db.CHAT_MAX} знаков")
+    uid = request["uid"]
+    u = db.user(uid)
+    row = db.add_message(u["couple_id"], uid, text.strip())
+    db.chat_seen(uid, row["id"])
+    p = db.partner(uid)
+    if p and request.app.get(BOT):  # the partner hears it in Telegram right away, as a short line
+        await chat.send(request.app[BOT], [planner.Out(p["id"], f"💬 {planner.esc(u['name'])}: {planner.esc(row['text'])}")])
+    return web.json_response({"message": _msg(row)})
 
 
 async def undo(request: web.Request) -> web.Response:
@@ -358,6 +393,8 @@ def build_app(bot=None) -> web.Application:
     app.router.add_get("/api/season", season)
     app.router.add_post("/api/settings", settings)
     app.router.add_post("/api/avatar", avatar)
+    app.router.add_get("/api/chat", chat_get)
+    app.router.add_post("/api/chat", chat_post)
     app.router.add_post("/api/projects", project_create)
     app.router.add_get("/api/projects/{id}", project_get)
     app.router.add_patch("/api/projects/{id}", project_change)

@@ -305,3 +305,31 @@ async def test_avatar_rejects_bad_images(client, couple, image):  # noqa: F811
     st = await (await client.get("/api/state", headers=H1)).json()
     assert not st["me"]["avatar"]
 
+
+
+async def test_couple_chat(client, couple):  # noqa: F811
+    h2 = {"X-Init-Data": init_data(2, "Дима")}
+    r = await client.post("/api/chat", json={"text": "  Привет! <b>ужин</b> в 7?  "}, headers=H1)
+    assert r.status == 200
+    m = (await r.json())["message"]
+    assert m["text"] == "Привет! <b>ужин</b> в 7?" and m["author"] == 1
+    st = await (await client.get("/api/state", headers=h2)).json()
+    assert st["chat_unread"] == 1
+    got = (await (await client.get("/api/chat", headers=h2)).json())["messages"]
+    assert [x["text"] for x in got] == ["Привет! <b>ужин</b> в 7?"]
+    assert (await (await client.get("/api/state", headers=h2)).json())["chat_unread"] == 0
+    await client.post("/api/chat", json={"text": "Да"}, headers=h2)
+    newer = (await (await client.get(f"/api/chat?after={m['id']}", headers=H1)).json())["messages"]
+    assert [x["text"] for x in newer] == ["Да"]
+    for bad in ({"text": ""}, {"text": "   "}, {"text": 5}, {}, {"text": "x" * 2001}):
+        assert (await client.post("/api/chat", json=bad, headers=H1)).status == 400
+    assert (await client.get("/api/chat?after=abc", headers=H1)).status == 200
+
+
+async def test_chat_is_private_to_the_couple_and_goes_with_delete(client, couple):  # noqa: F811
+    await client.post("/api/chat", json={"text": "секрет"}, headers=H1)
+    db.save_user(9, "Чужой")
+    h9 = {"X-Init-Data": init_data(9, "Чужой")}
+    assert (await (await client.get("/api/chat", headers=h9)).json())["messages"] == []
+    db.delete_user(1)
+    assert db.messages(db.user(2)["couple_id"]) == []

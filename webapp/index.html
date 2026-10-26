@@ -96,6 +96,15 @@ h1.solo{white-space:normal;font-size:19px;overflow-wrap:anywhere}
   color:#fff;border:2px solid var(--bg);background:var(--brand-fill);flex:none}
 .pair .ava + .ava{margin-left:-9px;background:var(--success)}
 .pair button.ava{cursor:pointer;padding:0}
+.chatbtn{position:relative;width:36px;height:36px;margin-right:10px;border:0;border-radius:50%;background:var(--surface-2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
+.chatbtn .ic{width:19px;height:19px}
+.chatbtn .badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font:800 11px/18px var(--font);text-align:center}
+.chat{display:flex;flex-direction:column;gap:6px;padding:var(--s2) 0 var(--s4)}
+.chat .day{align-self:center;margin:var(--s2) 0 2px;font:var(--t-caption);color:var(--text-2)}
+.msg{max-width:82%;align-self:flex-start;padding:8px 12px 6px;border-radius:18px 18px 18px 6px;background:var(--surface);border:1px solid var(--border);font:500 15px/1.4 var(--font);white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.mine{align-self:flex-end;border-radius:18px 18px 6px 18px;background:var(--brand-fill);border-color:transparent}
+.composer.chatting .hint{display:none}
+.msg time{display:block;margin-top:2px;text-align:right;font:500 11px/1 var(--font);color:var(--text-2)}
 .ava.big{width:48px;height:48px;font-size:20px;flex:none}
 label.opt{cursor:pointer}
 .ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control);padding:0;cursor:pointer}
@@ -435,6 +444,7 @@ main{animation:in var(--base) var(--ease)}
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c1.4-3.6 4.4-5 7.5-5s6.1 1.4 7.5 5"/></symbol>
   <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M3 20c1.3-3.6 4-5 7-5 1.6 0 3.1.4 4.3 1.2M18 14v6M15 17h6"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.8 19.5c1-3.3 3.4-4.6 6.2-4.6s5.2 1.3 6.2 4.6"/><path d="M15.5 5.3a3.3 3.3 0 0 1 0 6.4M17.5 15.2c1.8.5 3.1 1.8 3.7 4.3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5z"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.9 13h9.2l.9-13"/></symbol>
@@ -507,7 +517,7 @@ const tg = window.Telegram && Telegram.WebApp;
 const initData = tg ? tg.initData : "";
 // Sample data only on an explicit ?demo link (design previews); a real launch always needs Telegram's signed initData.
 const DEMO = !initData && new URLSearchParams(location.search).has("demo");
-let S = null, P = null, doFilter = "all", addSection = null, openProject = null, openSeason = false, SEASON = null, tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
+let S = null, P = null, doFilter = "all", addSection = null, openProject = null, openSeason = false, SEASON = null, openChat = false, CHAT = [], tab = "home", calMonth = null, calDay = null, calOpen = false, calWeek = null;
 if (tg && initData) {
   tg.ready(); tg.expand();
   // Always the light, warm look (the student's choice, 26.10): a dark Telegram no longer turns the planner dark.
@@ -587,6 +597,7 @@ async function api(path, opts={}){
 }
 function demoApi(path, opts){
   if (path === "/api/state") return S || demoState();
+  if (path.startsWith("/api/chat")) return opts.method === "POST" ? {message:{id:Date.now(), author:1, text:JSON.parse(opts.body).text, at:new Date().toISOString().slice(0, 16).replace("T", " ")}} : {messages:[]};
   if (path === "/api/season") return {current:S.score, last:null, history:[], streak:0, achievements:[], rules:["Пример: в демо-режиме очков нет."],
                                       nudge_mode:"humor", nudge_modes:{humor:"С юмором", soft:"Мягко", min:"Минимум", off:"Выключены"}};
   const m = path.match(/\/api\/items\/(\d+)/);
@@ -671,7 +682,9 @@ const shortDate = dayIso => new Date(dayIso + "T12:00").toLocaleDateString("ru-R
 
 function header(){
   const me = S.me, p = S.partner, t = todayIso();
-  $("pair").innerHTML = `<button class="ava mine" data-myphoto="1" ${photoStyle(me.avatar)} title="${esc(me.name)}" aria-label="Моё фото">${me.avatar ? "" : initial(me.name)}</button>` +
+  const unread = openChat ? 0 : S.chat_unread || 0;
+  $("pair").innerHTML = (p ? `<button class="chatbtn" data-chat="1" aria-label="Чат${unread ? ", новых: " + unread : ""}">${icon("i-chat")}${unread ? `<span class="badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>` : "") +
+    `<button class="ava mine" data-myphoto="1" ${photoStyle(me.avatar)} title="${esc(me.name)}" aria-label="Моё фото">${me.avatar ? "" : initial(me.name)}</button>` +
     (p ? `<span class="ava" ${photoStyle(p.avatar)} title="${esc(p.name)}">${p.avatar ? "" : initial(p.name)}</span>`
        : `<button class="ava wait" data-share="1" title="Пригласить партнёра" aria-label="Пригласить партнёра">${icon("i-user-plus")}</button>`);
   const h = new Date().getHours(), hi = h < 5 ? "доброй ночи" : h < 12 ? "доброе утро" : h < 18 ? "добрый день" : "добрый вечер";
@@ -745,16 +758,20 @@ function section(title, items, lead = "", cls = "", id = ""){
 // [normal, narrow screen]: a hint, never pre-filled text
 const PLACEHOLDER = {home:["Добавить дело, покупку или план…", "Дело или покупка…"], tasks:["Добавить дело или покупку…", "Дело или покупка…"],
                      month:["План на день или «занят с 8 до 10»…", "План на день…"], buy:["Добавить покупку…", "Что купить…"],
-                     projects:["Проект: шаг, шаг…", "Проект: шаг, шаг…"], project:["Добавить задачу…", "Задача…"]};
+                     projects:["Проект: шаг, шаг…", "Проект: шаг, шаг…"], chat:["Написать сообщение…", "Сообщение…"], project:["Добавить задачу…", "Задача…"]};
 function render(){
   header();
   const p = S.partner;
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  const ph = PLACEHOLDER[tab === "projects" && openProject ? "project" : tab];
+  const ph = PLACEHOLDER[openChat ? "chat" : tab === "projects" && openProject ? "project" : tab];
   $("input").placeholder = ph[innerWidth <= 360 ? 1 : 0];
+  $("input").maxLength = openChat ? 2000 : 500;
+  $("add").setAttribute("aria-label", openChat ? "Отправить" : "Добавить");
+  $("composer").classList.toggle("chatting", openChat);
   const nothing = !S.items.length && !(S.projects || []).length;
   let html;
-  if (tab === "home" && openSeason) html = seasonHtml();
+  if (openChat) html = chatHtml();
+  else if (tab === "home" && openSeason) html = seasonHtml();
   else if (tab === "home") html = nothing ? welcomeHtml(!p) : homeHtml();
   else if (tab === "month") html = monthHtml();
   else if (tab === "projects") html = openProject ? projectPageHtml() : projectsHtml();
@@ -766,6 +783,7 @@ function render(){
   } else html = tasksHtml();
   $("list").innerHTML = html;
   syncBack();
+  if (openChat) $("scroll").scrollTop = $("scroll").scrollHeight;
 }
 
 // Главная: what matters today, what burns, what is coming, what to buy, how the projects go. Each item shows once.
@@ -808,6 +826,36 @@ function updateScore(sc){
   if (el) el.outerHTML = scoreCard();
 }
 const RESULT = {family:"Победа семьи", chaos:"Победа хаоса", draw:"Ничья"};
+// ---------- our chat ----------
+// A plain chat for the two of them inside the app; the partner also gets each message in Telegram from the bot.
+function chatHtml(){
+  const back = `<button class="back" data-back="1">${icon("i-left")}Назад</button>`;
+  if (!CHAT.length) return back + stateHtml("i-chat", "Здесь ваш чат", `Пишите друг другу прямо в планере: ${esc(S.partner ? S.partner.name : "партнёр")} увидит сообщение здесь и получит его в Telegram.`);
+  let last = "", html = "";
+  for (const m of CHAT) {
+    const day = m.at.slice(0, 10);
+    if (day !== last) { html += `<div class="day">${day === todayIso() ? "Сегодня" : esc(shortDate(day))}</div>`; last = day; }
+    html += `<div class="msg ${m.author === S.me.id ? "mine" : ""}">${esc(m.text)}<time>${esc(m.at.slice(11, 16))}</time></div>`;
+  }
+  return back + `<div class="chat">${html}</div>`;
+}
+async function pullChat(){
+  const after = CHAT.length ? CHAT[CHAT.length - 1].id : 0;
+  const r = await api("/api/chat?after=" + after);
+  if (r.messages.length) { CHAT = CHAT.concat(r.messages.filter(m => !CHAT.some(c => c.id === m.id))); return true; }
+  return false;
+}
+let chatTimer = null;
+async function showChat(){
+  openChat = true; openSeason = false; render();
+  try { await pullChat(); S.chat_unread = 0; render(); } catch(err){ toast(err.message, "bad"); }
+  clearInterval(chatTimer);
+  // while the chat is open its new messages come every 4 s, not with the 20 s planner refresh
+  chatTimer = setInterval(async () => { if (!openChat) return clearInterval(chatTimer);
+    if (!document.hidden && !sending) try { if (await pullChat()) render(); } catch(e){} }, 4000);
+}
+function closeChat(){ openChat = false; clearInterval(chatTimer); }
+
 function seasonHtml(){
   const back = `<button class="back" data-back="1">${icon("i-left")}Главная</button>`;
   if (!SEASON) return back + `<div class="skel"></div><div class="skel"></div>`;
@@ -1091,7 +1139,7 @@ function busyHtml(){
 const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 $("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { if (b.dataset.tab === "projects") { openProject = null; P = null; } goTab(b.dataset.tab); } };
 
-function goTab(name){ tab = name; openSeason = false; if (name !== "projects") { openProject = null; P = null; } render(); $("tabs").scrollIntoView({block:"start"}); }
+function goTab(name){ tab = name; openSeason = false; closeChat(); if (name !== "projects") { openProject = null; P = null; } render(); $("tabs").scrollIntoView({block:"start"}); }
 
 const DONE_LINES = ["Опа. Человек слова!", "Готово, как договорились.", "Готово. Вторая половина уже в курсе."];
 document.body.addEventListener("click", async e => {
@@ -1103,6 +1151,7 @@ document.body.addEventListener("click", async e => {
     return tg && initData ? tg.openTelegramLink(url) : window.open(url);
   }
   if (e.target.closest("[data-myphoto]")) return photoSheet();
+  if (e.target.closest("[data-chat]")) return showChat();
   if (!e.target.closest("#list")) return;
   const g = e.target.closest("[data-goto]");
   if (g) return goTab(g.dataset.goto);
@@ -1118,7 +1167,7 @@ document.body.addEventListener("click", async e => {
     catch(err){ return toast("Не сохранилось: " + err.message, "bad"); }
     return render();
   }
-  if (e.target.closest("[data-back]")) { openProject = null; P = null; openSeason = false; return render(); }
+  if (e.target.closest("[data-back]")) { if (openChat) { closeChat(); return render(); } openProject = null; P = null; openSeason = false; return render(); }
   if (e.target.closest("[data-editproject]")) return P && projectSheet(P);
   const fl = e.target.closest("[data-filter]");
   if (fl) { doFilter = fl.dataset.filter; return render(); }
@@ -1252,10 +1301,11 @@ function openSheetEl(){ $("sheet").classList.add("on"); $("sheet").setAttribute(
 // instead of closing the whole app. Hidden on the top-level screens, where back means leaving.
 function syncBack(){
   const bb = tg && tg.BackButton; if (!bb) return;
-  ($("sheet").classList.contains("on") || openProject || openSeason) ? bb.show() : bb.hide();
+  ($("sheet").classList.contains("on") || openProject || openSeason || openChat) ? bb.show() : bb.hide();
 }
 function goBack(){
   if ($("sheet").classList.contains("on")) return closeSheet();
+  if (openChat) { closeChat(); return render(); }
   if (openProject || openSeason) { openProject = null; P = null; openSeason = false; render(); }
 }
 if (tg && tg.BackButton && tg.BackButton.onClick) tg.BackButton.onClick(goBack);
@@ -1342,6 +1392,12 @@ $("form").onsubmit = async e => {
   const text = $("input").value.trim(); if (!text) return $("input").focus();
   sending = true; $("add").disabled = true; $("composer").classList.add("busy"); $("form").setAttribute("aria-busy", "true");
   try {
+    if (openChat) {
+      const r = await api("/api/chat", {method:"POST", body:JSON.stringify({text})});
+      $("input").value = ""; store.set("draft", "");
+      if (!CHAT.some(m => m.id === r.message.id)) CHAT.push(r.message);
+      render(); $("input").focus(); return;
+    }
     if (tab === "projects" && openProject) {  // inside a project the line is its next step, whatever it says
       const r = await api(`/api/projects/${openProject}/items`, {method:"POST", body:JSON.stringify({text, who:"me", section: addSection})});
       $("input").value = ""; store.set("draft", "");
