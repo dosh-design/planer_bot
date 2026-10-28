@@ -170,7 +170,8 @@ def init() -> None:
         have = {r[1] for r in c.execute("PRAGMA table_info(items)")}
         for col, kind in (("end_time", "TEXT"), ("repeat", "TEXT"), ("project_id", "INTEGER"),
                           ("note", "TEXT NOT NULL DEFAULT ''"), ("position", "INTEGER"), ("remind_before", "INTEGER"),
-                          ("section_id", "INTEGER"), ("series_id", "INTEGER"), ("plan_day", "TEXT")):
+                          ("section_id", "INTEGER"), ("series_id", "INTEGER"), ("plan_day", "TEXT"),
+                          ("ext_uid", "TEXT")):
             if col not in have:
                 c.execute(f"ALTER TABLE items ADD COLUMN {col} {kind}")
         have = {r[1] for r in c.execute("PRAGMA table_info(projects)")}
@@ -180,6 +181,8 @@ def init() -> None:
         # One row per planned date of a series: a retried «Сделано» cannot make the next instance twice.
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS items_series ON items(couple_id, series_id, plan_day)"
                   " WHERE series_id IS NOT NULL")
+        # An event imported from a phone calendar, by its calendar UID: importing the same calendar again adds only what is new.
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS items_ext ON items(couple_id, ext_uid) WHERE ext_uid IS NOT NULL")
         ucols = {r[1] for r in c.execute("PRAGMA table_info(users)")}
         if "nudge_mode" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN nudge_mode TEXT NOT NULL DEFAULT 'humor'")
@@ -360,6 +363,30 @@ def add_item(couple_id: int, author_id: int, kind: str, text: str, assignee_id: 
              end_time if time else None, repeat if day else None, project_id, (note or "")[:2000],
              section_id if project_id else None, remind_before, position),
         ).lastrowid
+
+
+def import_events(couple_id: int, uid: int, events: list) -> list[int]:
+    """Calendar events (ics.Event) into the couple's plans; ids of the rows really added (repeats are skipped).
+    A dated event of one's own day is that person's busy time, an all-day one a date of theirs, a yearly one shared."""
+    added = []
+    with closing(_connect()) as c:
+        c.execute("BEGIN")
+        for e in events:
+            if e.repeat == "year":
+                kind, who = "event", None
+            elif e.time:
+                kind, who = "busy", uid
+            else:
+                kind, who = "event", uid
+            cur = c.execute(
+                "INSERT OR IGNORE INTO items (couple_id, kind, text, author_id, assignee_id, day, time, weekday, created,"
+                " end_time, repeat, ext_uid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (couple_id, kind, e.text[:300], uid, who, e.day, e.time, e.weekday, _stamp(),
+                 e.end if e.time else None, e.repeat if e.day else None, f"{uid}:{e.uid}"))
+            if cur.rowcount:
+                added.append(cur.lastrowid)
+        c.execute("COMMIT")
+    return added
 
 
 def item(item_id: int, couple_id: int) -> sqlite3.Row | None:

@@ -8,11 +8,14 @@ import binascii
 import logging
 from pathlib import Path
 
+import aiohttp
 from aiohttp import web
+from yarl import URL
 
 import bot as chat
 import db
 import game
+import ics
 import jokes
 import parser
 import planner
@@ -373,6 +376,54 @@ async def section_remove(request: web.Request) -> web.Response:
     return web.json_response({"project": _project_json(request, pid)})
 
 
+async def _fetch_calendar(url: str) -> str:
+    """Download a calendar link; every redirect is checked again, so a link cannot lead into the server's own network."""
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for _ in range(4):
+            safe = ics.link_ok(url)
+            if not safe:
+                raise ValueError("Такая ссылка не подходит. Нужна ссылка на календарь, начинается с https:// или webcal://")
+            async with session.get(safe, allow_redirects=False) as r:
+                if r.status in (301, 302, 303, 307, 308) and r.headers.get("Location"):
+                    url = str(r.url.join(URL(r.headers["Location"])))
+                    continue
+                if r.status != 200:
+                    raise ValueError("Календарь по ссылке не открылся. Проверьте, что он открыт для общего доступа.")
+                data = await r.content.read(ics.MAX_BYTES + 1)
+                if len(data) > ics.MAX_BYTES:
+                    raise ValueError("Календарь слишком большой: до 3 МБ")
+                return data.decode("utf-8", "replace")
+    raise ValueError("Слишком много переадресаций по ссылке")
+
+
+async def import_calendar(request: web.Request) -> web.Response:
+    """A calendar from the phone: {"ics": file text} or {"url": iCloud / Google link}. Adds only what is new."""
+    body = await _body(request)
+    if body is None:
+        return _err("Пустой запрос")
+    text, url = body.get("ics"), body.get("url")
+    if isinstance(url, str) and url.strip():
+        try:
+            text = await _fetch_calendar(url)
+        except ValueError as e:
+            return _err(str(e))
+        except (aiohttp.ClientError, TimeoutError):
+            return _err("Не удалось скачать календарь по ссылке. Попробуйте ещё раз или загрузите файл.")
+    if not isinstance(text, str) or "BEGIN:VCALENDAR" not in text[:2000].upper():
+        return _err("Это не похоже на календарь. Нужен файл .ics или ссылка на календарь.")
+    uid = request["uid"]
+    u = db.user(uid)
+    today = db.local_now().date()
+    events = ics.parse(text, today, config.timezone)
+    added = db.import_events(u["couple_id"], uid, events)
+    p = db.partner(uid)
+    if added and p and request.app.get(BOT):
+        await chat.send(request.app[BOT], [planner.Out(p["id"], f"📅 {planner.esc(u['name'])} перенёс(ла) в планер календарь: "
+                                                               f"{jokes.plural(len(added), 'план', 'плана', 'планов')}.")])
+    return web.json_response({"found": len(events), "added": len(added)})
+
+
 async def auth_start(request: web.Request) -> web.Response:
     """The phone app's sign-in: a one-time code and the bot link to confirm it."""
     code = db.login_start()
@@ -406,7 +457,7 @@ async def health(_):
 
 
 def build_app(bot=None) -> web.Application:
-    app = web.Application(middlewares=[auth], client_max_size=64 * 1024)
+    app = web.Application(middlewares=[auth], client_max_size=ics.MAX_BYTES + 64 * 1024)  # a calendar file is the only big body
     if bot is not None:
         app[BOT] = bot
     app.router.add_get("/", page)
@@ -427,6 +478,7 @@ def build_app(bot=None) -> web.Application:
     app.router.add_get("/api/season", season)
     app.router.add_post("/api/settings", settings)
     app.router.add_post("/api/avatar", avatar)
+    app.router.add_post("/api/import", import_calendar)
     app.router.add_get("/api/chat", chat_get)
     app.router.add_post("/api/chat", chat_post)
     app.router.add_post("/api/projects", project_create)
