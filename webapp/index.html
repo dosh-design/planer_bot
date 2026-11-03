@@ -379,6 +379,11 @@ main{animation:in var(--base) var(--ease)}
 .howto{margin:var(--s2) 0;font:var(--t-caption);color:var(--text-2)}
 .howto summary{cursor:pointer;font-weight:700;color:var(--text);padding:6px 0}
 .howto p{margin:6px 0}
+.tag.money{font-weight:800;color:var(--text)}
+.paysum{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin:var(--s2) 0 var(--s3)}
+.paysum>div{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:12px 14px}
+.paysum small{display:block;font:var(--t-caption);color:var(--text-2)}
+.paysum b{display:block;margin-top:4px;font:800 20px/1.2 var(--font);letter-spacing:-.3px}
 .sheet-head small{font:var(--t-caption);color:var(--text-2)}
 .opt{display:flex;gap:var(--s3);align-items:center;width:100%;min-height:52px;border:0;background:none;text-align:left;font:600 16px/1.2 var(--font);
   padding:0 var(--s1);border-bottom:1px solid var(--border);cursor:pointer;color:var(--text)}
@@ -781,6 +786,7 @@ const EMOJIS = ["🏠", "🧹", "🛒", "🍳", "🧺", "🔧", "💡", "🚗", 
 // A project task shown outside its project says which one; a note shows as a mark, its text is in the sheet.
 function tagHtml(it){
   const out = [];
+  if (it.amount) out.push(`<span class="tag money">${rub(it.amount)}</span>`);
   if (it.project && !(tab === "projects" && openProject)) out.push(`<span class="tag">${icon("i-folder")}${esc(it.project)}</span>`);
   if (it.note) out.push(`<span class="tag">${icon("i-list")}заметка</span>`);
   return out.length ? `<div>${out.join(" ")}</div>` : "";
@@ -839,6 +845,9 @@ function homeHtml(){
   html += busy.map(b => `<div class="note">${icon("i-clock")}<span>Сегодня ${esc(b.assignee_name)}: ${esc(b.text.toLowerCase())}${b.when ? ", " + esc(b.when) : ""}. Совместное лучше на другой день.</span></div>`).join("");
   html += section("Горит", hot, `<span class="ava both" style="background:var(--danger)">${icon("i-flame")}</span>`, "hot", "sec-hot");
   html += section("Скоро", soon.slice(0, 5), `<span class="ava both">${icon("i-heart")}</span>`, "", "sec-soon");
+  const pays = S.items.filter(i => isPayment(i) && i.day && i.day <= soonEnd);
+  if (pays.length) html += `<div class="sec" id="sec-pay"><span class="ava both">${icon("i-cal")}</span><h2>Платежи</h2><span class="count">${pays.length}</span></div>
+    <button class="tile-row" data-paygo="1"><span>${pays.slice(0, 3).map(i => esc(splitEmoji(i.text)[1]) + (i.amount ? " " + rub(i.amount) : "")).join(", ")}${pays.length > 3 ? ` и ещё ${pays.length - 3}` : ""}${pays.some(i => i.amount) ? ` · всего ${rub(pays.reduce((n, i) => n + (i.amount || 0), 0))}` : ""}</span>${icon("i-right", "ic go")}</button>`;
   if (buys.length) html += `<div class="sec" id="sec-buy"><span class="ava both">${icon("i-bag")}</span><h2>Купить</h2><span class="count">${buys.length}</span></div>
     <button class="tile-row" data-goto="buy"><span>${buys.slice(0, 4).map(i => esc(i.text)).join(", ")}${buys.length > 4 ? ` и ещё ${buys.length - 4}` : ""}</span>${icon("i-right", "ic go")}</button>`;
   if (projects.length) html += `<div class="sec" id="sec-projects"><span class="ava both">${icon("i-folder")}</span><h2>Проекты</h2><span class="count">${projects.length}</span></div>`
@@ -923,7 +932,24 @@ async function showSeason(){
 }
 
 // Дела: everything to do and plan, by whose it is; project steps live in their projects.
-const FILTERS = [["all", "Все"], ["today", "Сегодня"], ["late", "Просрочено"], ["planned", "Запланировано"], ["done", "Выполнено"]];
+const FILTERS = [["all", "Все"], ["today", "Сегодня"], ["late", "Просрочено"], ["planned", "Запланировано"], ["pay", "Платежи"], ["done", "Выполнено"]];
+// Payments: a task with a sum, or one that plainly is a bill. Paid = ticked off; a monthly one comes back next month.
+const PAY_WORDS = /оплат|заплат|плат[её]ж|квартплат|коммунал|кредит|ипотек|аренд|взнос|налог|штраф|страховк/i;
+const isPayment = it => it.kind === "task" && (!!it.amount || PAY_WORDS.test(it.text));
+const rub = n => n.toLocaleString("ru-RU").replace(/\s/g, "\u00a0") + "\u00a0₽";
+function paymentsHtml(){
+  const t = todayIso(), month = t.slice(0, 7);
+  const open = S.items.filter(isPayment).sort((a, b) => (a.day || "9") < (b.day || "9") ? -1 : 1);
+  const thisMonth = open.filter(i => !i.day || i.day.slice(0, 7) <= month);
+  const later = open.filter(i => !thisMonth.includes(i));
+  const paid = (S.done || []).filter(i => isPayment(i) && (i.done_at || "").slice(0, 7) === month);
+  const sum = list => list.reduce((n, i) => n + (i.amount || 0), 0);
+  const toPay = sum(thisMonth), paidSum = sum(paid);
+  const head = `<div class="paysum"><div><small>Осталось оплатить в этом месяце</small><b>${rub(toPay)}</b></div><div><small>Уже оплачено</small><b>${rub(paidSum)}</b></div></div>`;
+  if (!open.length && !paid.length) return head + stateHtml("i-cal", "Платежей пока нет",
+    "Напишите, например: «оплатить интернет 650 ₽ каждый месяц 10 числа». Бот напомнит, а после отметки «оплачено» платёж сам появится через месяц.");
+  return head + section("В этом месяце", thisMonth) + section("Дальше", later) + doneList("Оплачено в этом месяце", paid);
+}
 function doneList(title, items){
   if (!items.length) return "";
   return `<div class="sec past"><h2>${esc(title)}</h2><span class="count">${items.length}</span></div>`
@@ -940,6 +966,7 @@ function tasksHtml(){
     const done = (S.done || []).filter(i => i.kind === "task");
     return chips + (done.length ? doneList("Выполнено", done) : stateHtml("i-check", "Пока ничего не закрыто", "Сделанные дела появятся здесь, их можно вернуть, если отметили по ошибке."));
   }
+  if (doFilter === "pay") return chips + paymentsHtml();
   if (doFilter !== "all") {
     const pick = {today: i => !i.hot && (i.day === t || ((i.kind === "task" && !i.chore_done) || i.kind === "busy") && i.weekday === wd),
                   late: i => i.kind === "task" && (i.hot || (i.day && i.day < t && i.weekday == null)),
@@ -1228,6 +1255,7 @@ document.body.addEventListener("click", async e => {
   if (e.target.closest("[data-myphoto]")) return photoSheet();
   if (e.target.closest("[data-chat]")) return showChat();
   if (!e.target.closest("#list")) return;
+  if (e.target.closest("[data-paygo]")) { doFilter = "pay"; return goTab("tasks"); }
   const g = e.target.closest("[data-goto]");
   if (g) return goTab(g.dataset.goto);
   const pr = e.target.closest("[data-project]");
@@ -1415,6 +1443,7 @@ function openSheet(it){
       <div class="row two"><label>Напомнить<select name="remind">${REMINDS.map(([v, n]) => `<option value="${v}"${String(it.remind ?? "") === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>
         ${it.repeat === "year" ? "" : `<label>Повтор<select name="repeat">${REPEATS.map(([v, n]) => `<option value="${v}"${repeatKey(it) === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>`}</div>` : ""}
       ${it.kind === "task" && it.project_id && P && P.sections.length ? `<label>Этап<select name="section"><option value="">Без этапа</option>${P.sections.map(sc => `<option value="${sc.id}"${it.section_id === sc.id ? " selected" : ""}>${esc(sc.name)}</option>`).join("")}</select></label>` : ""}
+      ${it.kind === "task" ? `<label>Сумма платежа, ₽<input name="amount" type="number" inputmode="numeric" min="1" max="100000000" step="1" placeholder="Если это платёж: 650" value="${it.amount || ""}"></label>` : ""}
       ${it.kind !== "buy" ? `<label>Заметка<textarea name="note" maxlength="2000" placeholder="Детали, ссылки, размеры…">${esc(it.note || "")}</textarea></label>` : ""}
       <div class="err" id="edit-err" role="alert"></div>
       <button class="btn" type="submit">Сохранить</button></form>`;
@@ -1433,6 +1462,7 @@ function openSheet(it){
                  body.remind = f.get("remind") === "" ? null : +f.get("remind");
                  if (f.has("repeat") && f.get("repeat") !== repeatKey(it)) body.repeat = f.get("repeat") || null; }
     if (f.has("note")) body.note = f.get("note");
+    if (f.has("amount")) body.amount = f.get("amount") ? Math.round(+f.get("amount")) : null;
     if (f.has("section")) body.section = f.get("section") ? +f.get("section") : null;
     const btn = $("edit").querySelector(".btn"); if (btn.disabled) return;
     btn.disabled = true; $("edit-err").textContent = "";

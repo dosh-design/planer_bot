@@ -117,10 +117,17 @@ def line(row, today: dt.date | None = None) -> str:
     parts = [f"{icon} {esc(row['text'])}"]
     if row["kind"] != "buy":
         parts.append(esc(name(row["assignee_id"])))
+    if row["amount"]:
+        parts.append(rubles(row["amount"]))
     w = when_text(row, today)
     if w:
         parts.append(w)
     return " · ".join(parts)
+
+
+def rubles(n: int) -> str:
+    """«12 500 ₽»"""
+    return f"{n:,}".replace(",", "\u00a0") + "\u00a0₽"
 
 
 def item_buttons(row) -> list[list[tuple[str, str]]]:
@@ -207,7 +214,7 @@ def add_parsed(uid: int, parsed: list, project_id: int | None = None) -> tuple[l
         pid = project_id if it.kind == "task" and project_id else (
             db.project_by_name(u["couple_id"], uid, it.project) if it.kind == "task" and it.project else None)
         iid = db.add_item(u["couple_id"], uid, it.kind, it.text, assignee, it.date, it.time, it.weekly, it.end,
-                          it.repeat, pid)
+                          it.repeat, pid, amount=getattr(it, "amount", None))
         rows.append(db.item(iid, u["couple_id"]))
         fresh.append(rows[-1])
     if fresh:
@@ -355,6 +362,11 @@ def edit(uid: int, item_id: int, changes: dict) -> tuple[bool, str]:
         fields["text"] = text[:300]
     if "note" in changes:
         fields["note"] = str(changes["note"] or "").strip()[:2000]
+    if "amount" in changes:  # rubles, or null to say it is not a payment any more
+        a = changes["amount"]
+        if a is not None and (not isinstance(a, int) or isinstance(a, bool) or not 0 < a <= parser.MAX_AMOUNT):
+            return False, "Сумма — целое число рублей"
+        fields["amount"] = a
     if "remind" in changes:
         rb = changes["remind"]
         if rb is not None and (not isinstance(rb, int) or isinstance(rb, bool) or rb not in REMIND_CHOICES):

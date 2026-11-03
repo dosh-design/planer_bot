@@ -43,6 +43,7 @@ class Parsed:
     weekly: int | None = None  # 0..6 for repeating busy days and house chores
     repeat: str | None = None  # "month:21" — a payment on the 21st; "year" — a birthday on its date
     project: str | None = None  # «Ремонт кухни» for the steps of one bigger thing
+    amount: int | None = None   # rubles: «оплатить интернет 650 ₽» is a payment of 650
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -268,6 +269,10 @@ def find_repeat(t: str, today: dt.date, when: str | None) -> tuple[str | None, s
             return f"month:{anchor}", next_month_day(today, anchor).isoformat()
     if when and any(w in t for w in YEARLY_WORDS):
         return "year", when
+    if not when and (m := re.search(r"\b(\d{1,2})(?:-?го)? числа\b|\b(\d{1,2})-го\b", t)):
+        anchor = int(m[1] or m[2])  # «квартплата 20 числа»: the nearest 20th, this month or the next
+        if 1 <= anchor <= 31:
+            return None, next_month_day(today, anchor).isoformat()
     return None, when
 
 
@@ -352,7 +357,7 @@ _JUNK = re.compile(
     r"утром|вечером|до выходных|на выходных|в выходные|до конца недели|на неделе|"
     r"через \d+ (?:дн\w+|день|недел\w+)|через (?:день|неделю|две недели)|"
     r"(?:в|во|до|к|по) (?:понедельник\w*|вторник\w*|сред\w+|четверг\w*|пятниц\w+|суббот\w+|воскресень\w+)|"
-    r"\d{1,2}(?:-?го|-?е)? числа|\d{1,2}-?го|кажд\w+ месяц\w*|ежемесячно|раз в месяц|каждый год|ежегодно|"
+    r"(?:(?:до|к) )?\d{1,2}(?:-?го|-?е)? числа|(?:(?:до|к) )?\d{1,2}-?го|кажд\w+ месяц\w*|ежемесячно|раз в месяц|каждый год|ежегодно|"
     r"(?:(?:до|к) )?\d{1,2} (?:январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)\w*|"
     r"на (?:тебе|мне|нас)|кажд\w+ \w+|по (?:понедельникам|вторникам|средам|четвергам|пятницам|субботам|воскресеньям)|в (?:\d{1,2}(?:[:.]\d{2})?|" + _HW + r")(?: час\w*)?(?: (?:утра|дня|вечера|ночи))?|(?:(?:до|к) )?\d{1,2}[.:]\d{2}(?:\.\d{2,4})?)\b",
     re.I,
@@ -521,6 +526,31 @@ def split_emoji(text: str) -> tuple[str, str]:
     return (m.group(1), text[m.end():]) if m and text[m.end():].strip() else ("", text)
 
 
+# «650 ₽», «1 200 руб», «15,5 тыс», «12000р»: a sum of money in rubles. A bare number is never taken for money,
+# it is a date, a time or a quantity far more often.
+_AMOUNT = re.compile(r"(?<![\w.,])(\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*"
+                     r"(₽|руб(?:лей|ля|ль)?\.?|р\.?(?![а-яё])|тыс(?:яч[аи]?)?\.?(?:\s*(?:₽|руб(?:лей|ля|ль)?\.?|р\.?(?![а-яё])))?)",
+                     re.I)
+MAX_AMOUNT = 100_000_000
+
+
+def split_amount(text: str) -> tuple[int | None, str]:
+    """(rubles, the phrase without the sum)."""
+    m = _AMOUNT.search(text)
+    if not m:
+        return None, text
+    whole = int(re.sub(r"[ \u00a0]", "", m[1]))
+    value = whole + int((m[2] or "0").ljust(2, "0")) / 100
+    if m[3].lower().startswith("тыс"):
+        value *= 1000
+    amount = round(value)
+    if not 0 < amount <= MAX_AMOUNT:
+        return None, text
+    rest = (text[:m.start()] + text[m.end():])
+    rest = re.sub(r"\s+(?:на|за|в размере)\s*(?=$|[,.;])", "", re.sub(r"\s{2,}", " ", rest)).strip(" ,.-—:")
+    return amount, rest or text
+
+
 def with_emoji(emoji: str, items: list) -> list:
     if emoji:
         for it in items:
@@ -536,7 +566,13 @@ def parse(text: str, today: dt.date, author: str = "я", partner: str = "пар�
     text = strip_greeting(text)
     if not text or intent(text, today) != "do":
         return []
+    # a price in a shopping line stays in it («хлеб за 60 ₽»): only errands become payments
+    amount, text = (None, text) if re.match(r"\s*(?:купи|надо купить|нужно купить|докупить)", text, re.I) else split_amount(text)
     items = _parse(text, today, author, partner, forwarded, allow_model)
+    if amount:  # a sum belongs to a single payment, not to a shopping list or a project's steps
+        tasks = [it for it in items if it.kind in ("task", "event")]
+        if len(tasks) == 1:
+            tasks[0].amount = amount
     for it in items:  # «фотосессия в 12:00» with no day means today: a time always comes with its date
         if it.time and not it.date and it.weekly is None:
             it.date = today.isoformat()

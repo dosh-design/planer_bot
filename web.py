@@ -63,7 +63,7 @@ def _item(row, today, names: dict | None = None) -> dict:
         "repeat": row["repeat"], "project_id": row["project_id"],
         "project": (names or {}).get(row["project_id"]) if row["project_id"] else None,
         "weekday": row["weekday"],
-        "note": row["note"], "remind": row["remind_before"], "section_id": row["section_id"],
+        "note": row["note"], "amount": row["amount"], "remind": row["remind_before"], "section_id": row["section_id"],
         "done_at": row["done_at"], "series": row["series_id"],
         "warnings": planner.warnings(row),
     }
@@ -227,7 +227,7 @@ async def undo(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
-EDIT_KEYS = ("text", "day", "time", "end", "note", "remind", "repeat", "section")
+EDIT_KEYS = ("text", "day", "time", "end", "note", "remind", "repeat", "section", "amount")
 
 
 async def change(request: web.Request) -> web.Response:

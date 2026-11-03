@@ -171,7 +171,7 @@ def init() -> None:
         for col, kind in (("end_time", "TEXT"), ("repeat", "TEXT"), ("project_id", "INTEGER"),
                           ("note", "TEXT NOT NULL DEFAULT ''"), ("position", "INTEGER"), ("remind_before", "INTEGER"),
                           ("section_id", "INTEGER"), ("series_id", "INTEGER"), ("plan_day", "TEXT"),
-                          ("ext_uid", "TEXT")):
+                          ("ext_uid", "TEXT"), ("amount", "INTEGER")):
             if col not in have:
                 c.execute(f"ALTER TABLE items ADD COLUMN {col} {kind}")
         have = {r[1] for r in c.execute("PRAGMA table_info(projects)")}
@@ -349,7 +349,8 @@ def delete_user(uid: int) -> None:
 def add_item(couple_id: int, author_id: int, kind: str, text: str, assignee_id: int | None = None,
              day: str | None = None, time: str | None = None, weekday: int | None = None,
              end_time: str | None = None, repeat: str | None = None, project_id: int | None = None,
-             note: str = "", section_id: int | None = None, remind_before: int | None = None) -> int:
+             note: str = "", section_id: int | None = None, remind_before: int | None = None,
+             amount: int | None = None) -> int:
     assert kind in KINDS
     with closing(_connect()) as c:
         position = None
@@ -358,10 +359,11 @@ def add_item(couple_id: int, author_id: int, kind: str, text: str, assignee_id: 
                                  (project_id, couple_id)).fetchone()[0]
         return c.execute(
             "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, weekday, created, end_time,"
-            " repeat, project_id, note, section_id, remind_before, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " repeat, project_id, note, section_id, remind_before, position, amount)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (couple_id, kind, text[:300], author_id, assignee_id, day, time, weekday, _stamp(),
              end_time if time else None, repeat if day else None, project_id, (note or "")[:2000],
-             section_id if project_id else None, remind_before, position),
+             section_id if project_id else None, remind_before, position, amount),
         ).lastrowid
 
 
@@ -420,7 +422,7 @@ def update_item(item_id: int, couple_id: int, **fields) -> bool:
     """Change an item's fields; a moved date or time (or another reminder moment) re-arms the reminder,
     a moved date starts the overdue nudges over."""
     allowed = {k: v for k, v in fields.items()
-               if k in ("text", "day", "time", "end_time", "repeat", "note", "remind_before", "section_id", "plan_day")}
+               if k in ("text", "day", "time", "end_time", "repeat", "note", "remind_before", "section_id", "plan_day", "amount")}
     if not allowed:
         return False
     sets = ", ".join(f"{k} = ?" for k in allowed)
@@ -468,11 +470,11 @@ def next_instance(row, day: str, plan_day: str) -> int | None:
         try:
             return c.execute(
                 "INSERT INTO items (couple_id, kind, text, author_id, assignee_id, day, time, end_time, repeat, project_id,"
-                " note, section_id, remind_before, position, series_id, plan_day, created)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " note, section_id, remind_before, position, series_id, plan_day, created, amount)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (row["couple_id"], row["kind"], row["text"], row["author_id"], row["assignee_id"], day, row["time"],
                  row["end_time"], row["repeat"], row["project_id"], row["note"], row["section_id"], row["remind_before"],
-                 row["position"], series, plan_day, _stamp())).lastrowid
+                 row["position"], series, plan_day, _stamp(), row["amount"])).lastrowid
         except sqlite3.IntegrityError:
             return None
 
