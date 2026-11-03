@@ -51,12 +51,12 @@ def score_line(family: int, chaos: int) -> str:
 
 def status(family: int, chaos: int, days_left: int) -> str:
     if family > chaos:
-        return "На этой неделе вы впереди!"
+        return "На этой неделе вы впереди"
     if family < chaos:
-        return f"Хаос пока впереди, но до конца недели {jokes.plural_days(days_left)}. Время отыграться!"
+        return f"Хаос пока впереди, но до конца недели {jokes.plural_days(days_left)}. Время отыграться."
     if family == 0:
         return "Новый матч только начался. Первое сделанное дело — первое очко."
-    return "Пока ничья. Одно дело — и вы впереди!"
+    return "Пока ничья. Одно дело — и вы впереди."
 
 
 def achievement_text(code: str, detail: str) -> str:

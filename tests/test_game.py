@@ -448,7 +448,7 @@ async def test_api_done_reports_the_server_score_once(client, couple):  # noqa: 
     r = await (await client.post(f"/api/items/{iid}/done", headers=h)).json()  # a retried request
     assert not r["scored"] and not r["toast"] and r["score"]["family"] == 1
     state = await (await client.get("/api/state", headers=h)).json()
-    assert state["score"]["family"] == 1 and state["score"]["status"] == "На этой неделе вы впереди!"
+    assert state["score"]["family"] == 1 and state["score"]["status"] == "На этой неделе вы впереди"
 
 
 async def test_bot_and_app_show_the_same_score(client, couple):  # noqa: F811
