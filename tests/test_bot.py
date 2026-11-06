@@ -151,4 +151,4 @@ async def test_same_purchase_is_reported_as_already_listed(couple):
 async def test_greeting_has_the_new_name_and_motto():
     m = message(8, "Оля", "/start")
     await bot.start(m, SimpleNamespace(args=None), FakeBot())
-    assert "«Договорились»" in m.answers[0][0] and "Меньше бытового хаоса. Больше времени вместе." in m.answers[0][0]
+    assert "«Договорились»" in m.answers[0][0] and "Меньше суеты. Больше времени вместе." in m.answers[0][0]

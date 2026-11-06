@@ -107,7 +107,7 @@ def init() -> None:
                 revoked INTEGER NOT NULL DEFAULT 0
             );
             -- Who did something on which day: no texts, only for "couples still active on day 14".
-            -- «Семья против бытового хаоса»: one row per point. The unique key is the guard against counting a point
+            -- «Мы против забытых дел»: one row per point. The unique key is the guard against counting a point
             -- twice (a second tap, a retried request, a restart, both partners at once). Rows outlive their items.
             CREATE TABLE IF NOT EXISTS game_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

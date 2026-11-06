@@ -13,7 +13,7 @@ class Config:
     bot_token: str = "".join(os.environ.get("BOT_TOKEN", "").split())
     bot_username: str = os.environ.get("BOT_USERNAME", "promise_done_bot").lstrip("@")
     brand: str = env("BRAND", "Договорились")
-    slogan: str = env("SLOGAN", "Меньше бытового хаоса. Больше времени вместе.")
+    slogan: str = env("SLOGAN", "Меньше суеты. Больше времени вместе.")
     data_dir: Path = Path(env("DATA_DIR", "/data"))
     timezone: str = env("TZ_NAME", "Europe/Moscow")
     # Yandex AI Studio: the text model turns a phrase into tasks, SpeechKit turns a voice message into text.

@@ -251,7 +251,7 @@ class Done:
     ok: bool
     notes: list[Out]
     scored: bool = False   # the family's point was counted by this very call
-    toast: str = ""        # the short «Семья 1:0 — Бытовой хаос!» for the one who ticked it
+    toast: str = ""        # the short «Мы 1:0 — Забытые дела!» for the one who ticked it
     score: dict | None = None
 
 

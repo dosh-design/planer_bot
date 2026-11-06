@@ -42,7 +42,7 @@ HELP = (
     "• «День рождения мамы 1 февраля» → важная дата, напомню за неделю и в сам день\n"
     "• «Ремонт кухни: купить плитку, вызвать мастера» → проект со списком шагов\n"
     "Можно переслать сообщение из вашей переписки: «сделай, пожалуйста…» тоже пойму.\n\n"
-    "Каждое сделанное дело — очко семье в общем матче против бытового хаоса: /season.\n"
+    "Каждое сделанное дело — очко вашей команде в матче против забытых дел: /season.\n"
     "Напоминаю с юмором; тон и частоту можно поменять: /reminders."
 )
 
@@ -384,14 +384,14 @@ async def cb_done(cb: CallbackQuery, bot: Bot) -> None:
     await send(bot, d.notes)
 
 
-RESULT_NAMES = {"family": "победа семьи", "chaos": "победа хаоса", "draw": "ничья"}
+RESULT_NAMES = {"family": "наша победа", "chaos": "победа забытых дел", "draw": "ничья"}
 
 
 def season_text(couple_id: int) -> str:
     """The same numbers as the mini-app's «Наш сезон»: both read game.season."""
     s = game.season(couple_id, db.local_now().date())
     cur = s["current"]
-    lines = ["<b>🏆 Наш сезон: Семья против бытового хаоса</b>",
+    lines = ["<b>🏆 Наш сезон: мы против забытых дел</b>",
              f"Неделя {cur['label']}: <b>{game.score_line(cur['family'], cur['chaos'])}</b>", cur["status"]]
     if s["last"]:
         last = s["last"]

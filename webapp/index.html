@@ -205,7 +205,7 @@ main{animation:in var(--base) var(--ease)}
 .progress{height:6px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden;margin:0 0 var(--s2)}
 .progress i{display:block;height:100%;background:var(--success);border-radius:inherit}
 .sec .ava .ic{width:14px;height:14px;stroke-width:2.2}
-/* «Семья против бытового хаоса»: one shared score, never a partner-vs-partner table */
+/* «Мы против забытых дел»: one shared score, never a partner-vs-partner table */
 .score-card{display:flex;align-items:center;gap:var(--s3);width:100%;margin-top:var(--s3);padding:var(--s3) var(--s4);text-align:left;
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--shadow-1);color:var(--text);cursor:pointer;font:inherit}
 .score-card .tile{width:40px;height:40px;border-radius:12px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;flex:none}
@@ -648,7 +648,7 @@ const HERO = `<svg class="hero" viewBox="0 0 220 140" aria-hidden="true">
 const IDEAS = ["По вторникам выносить мусор — на тебе", "Купить молоко и хлеб", "В субботу едем к маме"];
 function welcomeHtml(solo){
   return `<div class="welcome">${HERO}<h3>${solo ? "Пока здесь свободно" : "Дел нет. Подозрительно уютно"}</h3>
-    <p class="slogan">Меньше бытового хаоса. Больше времени вместе.</p><p>${solo ? "Добавь свой план или пригласи партнёра, чтобы планировать вместе." : "Напишите внизу, кто что делает по дому, и бот напомнит."}</p>${FIRST}
+    <p class="slogan">Меньше суеты. Больше времени вместе.</p><p>${solo ? "Добавь свой план или пригласи партнёра, чтобы планировать вместе." : "Напишите внизу, кто что делает по дому, и бот напомнит."}</p>${FIRST}
     <div class="ideas"><small>Или начни с примера:</small>${IDEAS.map(t => `<button data-idea="${esc(t)}">${esc(t)}</button>`).join("")}</div></div>`;
 }
 function stateHtml(ic, title, text, action = "", err = false){
@@ -674,7 +674,7 @@ function showFatal(e){
 let loginTimer = null;
 function showLogin(){
   clearInterval(loginTimer);
-  $("hello").textContent = "Договорились"; $("date").textContent = "Меньше бытового хаоса. Больше времени вместе.";
+  $("hello").textContent = "Договорились"; $("date").textContent = "Меньше суеты. Больше времени вместе.";
   $("pair").innerHTML = ""; $("summary").innerHTML = ""; $("invite").innerHTML = "";
   $("tabs").hidden = true; $("composer").hidden = true;
   $("list").innerHTML = stateHtml("i-lock", "Вход через Telegram",
@@ -855,13 +855,13 @@ function homeHtml(){
   return html;
 }
 
-// ---------- «Семья против бытового хаоса» ----------
+// ---------- «Мы против забытых дел» ----------
 // The score is the couple's, from the server (/api/state, /api/season): the app never counts points itself.
-const scoreLine = (f, c) => `<span class="score-line"><span class="fam">Семья <b>${f}</b></span><span class="sep">:</span><span><b>${c}</b> Бытовой хаос</span></span>`;
+const scoreLine = (f, c) => `<span class="score-line"><span class="fam">Мы <b>${f}</b></span><span class="sep">:</span><span><b>${c}</b> Забытые дела</span></span>`;
 function scoreCard(){
   const sc = S.score;
   if (!sc) return "";
-  return `<button class="score-card" id="score" data-season="1" aria-label="Наш сезон: семья ${sc.family}, бытовой хаос ${sc.chaos}. ${esc(sc.status)}">
+  return `<button class="score-card" id="score" data-season="1" aria-label="Наш сезон: мы ${sc.family}, забытые дела ${sc.chaos}. ${esc(sc.status)}">
     <span class="tile">${icon("i-trophy")}</span><span class="sbody">${scoreLine(sc.family, sc.chaos)}<small>${esc(sc.status)}</small></span>${icon("i-right", "ic go")}</button>`;
 }
 function updateScore(sc){
@@ -870,7 +870,7 @@ function updateScore(sc){
   const el = $("score");
   if (el) el.outerHTML = scoreCard();
 }
-const RESULT = {family:"Победа семьи", chaos:"Победа хаоса", draw:"Ничья"};
+const RESULT = {family:"Наша победа", chaos:"Победа забытых дел", draw:"Ничья"};
 // ---------- our chat ----------
 // A plain chat for the two of them inside the app; the partner also gets each message in Telegram from the bot.
 function chatHtml(){
@@ -907,8 +907,8 @@ function seasonHtml(){
   const cur = SEASON.current, passed = 7 - cur.days_left + 1, pct = Math.round(100 * Math.min(passed, 7) / 7);
   const got = SEASON.achievements.filter(a => a.unlocked).length;
   const modes = Object.entries(SEASON.nudge_modes || {});
-  return back + `<div class="season"><h2>Наш сезон</h2><p>Семья против бытового хаоса · неделя ${esc(cur.label)}</p>
-      <div class="vs"><div class="fam"><b>${cur.family}</b><span>Семья</span></div><div class="colon">:</div><div><b>${cur.chaos}</b><span>Бытовой хаос</span></div></div>
+  return back + `<div class="season"><h2>Наш сезон</h2><p>Мы против забытых дел · неделя ${esc(cur.label)}</p>
+      <div class="vs"><div class="fam"><b>${cur.family}</b><span>Мы</span></div><div class="colon">:</div><div><b>${cur.chaos}</b><span>Забытые дела</span></div></div>
       <p style="text-align:center;margin-bottom:var(--s3)">${esc(cur.status)}</p>
       <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Прошло дней недели: ${Math.min(passed, 7)} из 7"><i style="width:${pct}%"></i></div>
       <p>${cur.days_left > 1 ? `До конца матча ${cur.days_left} ${plural(cur.days_left, "день", "дня", "дней")}. Итог придёт в понедельник утром.` : "Последний день матча. Итог придёт в понедельник утром."}</p></div>`
@@ -972,7 +972,7 @@ function tasksHtml(){
                   late: i => i.kind === "task" && (i.hot || (i.day && i.day < t && i.weekday == null)),
                   planned: i => i.day && i.day > t}[doFilter];
     const list = items.filter(pick).sort(byDay);
-    const empty = {today: ["На сегодня дел нет", "Можно выдохнуть."], late: ["Просроченных нет", "Бытовой хаос в этот раз без очков."],
+    const empty = {today: ["На сегодня дел нет", "Можно выдохнуть."], late: ["Просроченных нет", "Забытые дела в этот раз без очков."],
                    planned: ["Впереди пусто", "Добавьте дело с датой: «оплатить садик до 30.10»."]}[doFilter];
     return chips + (list.length ? list.map(cardHtml).join("") : stateHtml("i-check", empty[0], empty[1]));
   }

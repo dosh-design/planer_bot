@@ -45,7 +45,7 @@ async def main() -> None:
         BotCommand(command="list", description="Дела"),
         BotCommand(command="buy", description="Покупки"),
         BotCommand(command="projects", description="Проекты"),
-        BotCommand(command="season", description="Счёт: семья против хаоса"),
+        BotCommand(command="season", description="Счёт: мы против забытых дел"),
         BotCommand(command="reminders", description="Тон напоминаний"),
         BotCommand(command="busy", description="Занятые дни"),
         BotCommand(command="invite", description="Позвать пару"),

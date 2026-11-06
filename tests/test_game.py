@@ -1,4 +1,4 @@
-"""«Семья против бытового хаоса»: points, weekly matches, achievements, reminder settings, API and bot agreement."""
+"""«Мы против забытых дел»: points, weekly matches, achievements, reminder settings, API and bot agreement."""
 import datetime as dt
 import sqlite3
 import threading
@@ -57,7 +57,7 @@ def test_done_gives_the_family_one_point(couple):
     d = planner.complete(2, iid)
     assert d.ok and d.scored and score(couple) == (1, 0)
     assert d.toast.endswith("Неделя: 1:0")
-    assert any("Семья 1 : 0 Бытовой хаос" in n.text for n in d.notes if n.chat_id == 1)
+    assert any("Мы 1 : 0 Забытые дела" in n.text for n in d.notes if n.chat_id == 1)
 
 
 def test_second_tap_gives_nothing_more(couple):
@@ -235,7 +235,7 @@ def test_family_wins_the_week(couple, clock):
     _play(couple, clock, 3, 1)
     out = _results(planner.tick(at(clock, dt.date(2026, 10, 26), 10)))
     assert sorted(o.chat_id for o in out) == [1, 2]
-    assert "Семья 3 : 1 Бытовой хаос" in out[0].text and "Новый матч" in out[0].text
+    assert "Мы 3 : 1 Забытые дела" in out[0].text and "Новый матч" in out[0].text
     assert db.matches(couple)[0]["result"] == "family"
 
 
@@ -244,7 +244,7 @@ def test_chaos_wins_the_week_without_blame(couple, clock):
     out = _results(planner.tick(at(clock, dt.date(2026, 10, 26), 10)))
     assert db.matches(couple)[0]["result"] == "chaos"
     text = out[0].text
-    assert "Семья 1 : 3 Бытовой хаос" in text and "Маша" not in text and "Дима" not in text
+    assert "Мы 1 : 3 Забытые дела" in text and "Маша" not in text and "Дима" not in text
 
 
 def test_draw(couple, clock):
@@ -277,7 +277,7 @@ def test_points_at_the_week_boundary_go_to_the_right_match(couple, clock):
     planner.complete(2, iid)
     assert score(couple, NEXT) == (1, 0)  # done on Monday: the new week's point
     out = _results(planner.tick(at(clock, dt.date(2026, 10, 26), 10)))
-    assert "Семья 1 : 1 Бытовой хаос" in out[0].text
+    assert "Мы 1 : 1 Забытые дела" in out[0].text
 
 
 def test_history_is_kept_week_after_week(couple, clock):
@@ -458,7 +458,7 @@ async def test_bot_and_app_show_the_same_score(client, couple):  # noqa: F811
     await bot.season(m)
     text = m.answers[0][0]
     cur = season["current"]
-    assert f"Семья {cur['family']} : {cur['chaos']} Бытовой хаос" in text
+    assert f"Мы {cur['family']} : {cur['chaos']} Забытые дела" in text
     assert [a["code"] for a in season["achievements"] if a["unlocked"]] == ["first_done"]
     assert "Первое дело" in text and len(season["achievements"]) == len(game.ACHIEVEMENTS)
 
