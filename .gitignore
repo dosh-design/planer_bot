@@ -3,3 +3,5 @@ __pycache__/
 .pytest_cache/
 /data/
 mobile/node_modules/
+# dembrandt design audit (docs/dev-tools.md)
+output/

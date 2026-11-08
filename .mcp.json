@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--headless", "--viewport-size=390x844"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--isolated", "--headless", "--viewport=390x844",
+               "--performance-crux=false"],
+      "env": { "CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS": "1" }
+    },
+    "dembrandt": {
+      "command": "npx",
+      "args": ["-y", "dembrandt-mcp"]
+    }
+  }
+}

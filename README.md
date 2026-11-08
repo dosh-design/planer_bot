@@ -66,6 +66,10 @@
 
 Без Yandex-ключей бот работает, но голос выключен, а фразы разбирают простые правила.
 
+## Проверка интерфейса агентом
+
+`.mcp.json` подключает к Claude Code Playwright MCP, Chrome DevTools MCP и Dembrandt MCP: агент открывает демо (`python3 -m http.server 8080 -b 127.0.0.1 -d webapp`, затем `/index.html?demo`), проходит экраны в вьюпорте телефона, смотрит консоль и снимает дизайн-токены. `tests/test_frontend_audit.py` следит, чтобы во фронтенд и мобильную оболочку не попали source maps, секреты и скрипты с неодобренных хостов. Подробно — [docs/dev-tools.md](docs/dev-tools.md).
+
 ## Тесты
 
 ```
