@@ -396,9 +396,16 @@ def season_text(couple_id: int) -> str:
     if s["last"]:
         last = s["last"]
         lines.append(f"Прошлый матч ({last['label']}): {last['family']}:{last['chaos']}, {RESULT_NAMES[last['result']]}.")
-    got = [a for a in s["achievements"] if a["unlocked"]]
-    lines.append("\n<b>Достижения</b>: " + (", ".join(f"{a['icon']} {a['title']}" for a in got) if got
-                                         else "пока нет. Первое — за первое сделанное дело."))
+    got = [a for a in s["achievements"] if a["tier"]]
+    medal = {t: game.TIER_NAMES[t][0] for t in game.TIERS}
+    lines.append("\n<b>Достижения</b>: " + (", ".join(f"{medal[a['tier']]} {a['title']}" for a in got) if got
+                                         else "пока нет. Первая бронза — за первое сделанное дело."))
+    close = sorted((a for a in s["achievements"] if a["next"] and a["count"]),
+                   key=lambda a: a["next"]["need"] - a["count"])[:3]
+    if close:
+        lines.append("Ближе всего: " + "; ".join(
+            f"{a['icon']} {a['title']} — {a['count']} из {a['next']['need']} {game.TIER_TO[a['next']['tier']]}"
+            for a in close) + ".")
     lines.append("\n" + "\n".join(f"• {r}" for r in s["rules"]))
     return "\n".join(lines)
 
