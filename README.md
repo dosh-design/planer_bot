@@ -72,3 +72,11 @@
 pip install -r requirements.txt pytest pytest-aiohttp
 python -m pytest -q
 ```
+
+## Для разработки с агентами
+
+- `AGENTS.md` — правила для агентов (ThinkRail, Claude Code, Codex); `goal-and-requirements.md`, `architecture.md`
+  и `SPEC.md` в `webapp/`, `mobile/` — граф спецификаций в формате ThinkRail.
+- `DESIGN.md` — дизайн-система мини-приложения.
+- `docs/AUDIT-pre-launch.md` — аудит по чек-листу из 23 пунктов; повторить — скилл `pre-launch-audit`.
+- `docs/TOOLS.md` — инструменты из Awesome REA для проверки своего API и Android-сборки.
