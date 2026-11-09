@@ -110,7 +110,8 @@ h1.solo{white-space:normal;font-size:19px;overflow-wrap:anywhere}
 .composer.chatting .hint{display:none}
 .msg time{display:block;margin-top:2px;text-align:right;font:500 11px/1 var(--font);color:var(--text-2)}
 .ava.big{width:48px;height:48px;font-size:20px;flex:none}
-label.opt{cursor:pointer}
+label.opt,a.opt{cursor:pointer}
+a.opt{text-decoration:none;color:inherit}
 .ava.wait{background:var(--surface-2);color:var(--text-2);border-style:dashed;border-color:var(--control);padding:0;cursor:pointer}
 .ava.wait .ic{width:16px;height:16px;stroke-width:2}
 
@@ -1408,6 +1409,8 @@ function photoSheet(){
     <input type="file" id="photo-file" accept="image/*" hidden>
     ${me.avatar ? `<button class="opt danger" data-nophoto="1">${icon("i-trash")}<span>Убрать фото</span></button>` : ""}
     ${!initData && store.get("token") ? `<button class="opt" data-logout="1">${icon("i-left")}<span>Выйти из аккаунта на этом телефоне</span></button>` : ""}
+    <a class="opt" href="/privacy" target="_blank" rel="noopener">${icon("i-lock")}<span>Политика конфиденциальности</span></a>
+    <button class="opt danger" data-delaccount="1">${icon("i-trash")}<span>Удалить аккаунт</span></button>
     <button class="opt cancel" data-close="1">Отмена</button>`;
   openSheetEl();
   $("photo-file").onchange = async () => {
@@ -1421,8 +1424,21 @@ function photoSheet(){
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (b && b.dataset.delaccount) {
+      // Twice, like deleting a stage: the first tap only explains what goes.
+      if (!b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = S.partner
+        ? `Точно? Вас удалим, общие записи останутся у ${S.partner.name}` : "Точно? Удалим вас и все записи"; return; }
+      try { await api("/api/account/delete", {method:"POST", body:JSON.stringify({confirm:true})}); }
+      catch(err){ return toast("Не удалилось: " + err.message, "bad"); }
+      store.set("token", ""); closeSheet(); S = null;
+      if (initData) { $("tabs").hidden = true; $("composer").hidden = true;
+        $("list").innerHTML = stateHtml("i-check", "Аккаунт удалён", "Если передумаете, напишите боту /start."); return; }
+      return showLogin();
+    }
     if (b && b.dataset.logout) {
-      try { await fetch("/auth/logout", {method:"POST", headers:{"Authorization": "Bearer " + store.get("token")}}); } catch(err){}
+      try { await fetch("/auth/logout", {method:"POST", headers:{"Content-Type":"application/json", "Authorization": "Bearer " + store.get("token")},
+                                         body: JSON.stringify({push: store.get("push")})}); } catch(err){}
+      store.set("push", "");
       store.set("token", ""); closeSheet(); S = null; return showLogin();
     }
     if (b && b.dataset.nophoto) {
@@ -1610,6 +1626,41 @@ async function refresh(){
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 setInterval(refresh, 20000);
+
+// ---------- the Android / iOS app (Capacitor): its own buttons and notifications ----------
+const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const NP = NATIVE ? Capacitor.Plugins : {};
+if (NATIVE) {
+  // Android's back key: close the sheet, leave a project, the chat or the season; on the main screen leave the app.
+  if (NP.App) NP.App.addListener("backButton", () => {
+    if ($("sheet").classList.contains("on") || openProject || openSeason || openChat) return goBack();
+    NP.App.minimizeApp ? NP.App.minimizeApp() : NP.App.exitApp();
+  });
+  if (NP.StatusBar) { try { NP.StatusBar.setStyle({style: "LIGHT"}); NP.StatusBar.setBackgroundColor && NP.StatusBar.setBackgroundColor({color: "#FFF8F0"}); } catch(e){} }
+  // Coming back from Telegram after the sign-in: look for the token at once, not on the next tick.
+  if (NP.App) NP.App.addListener("resume", () => { if (S) refresh(); });
+}
+let pushAsked = false;
+async function setupPush(){
+  const P = NP.PushNotifications, platform = Capacitor.getPlatform();
+  if (pushAsked || !P || !S || !(S.push || {})[platform]) return;  // the server has no keys for this side yet
+  pushAsked = true;
+  try {
+    let perm = await P.checkPermissions();
+    if (perm.receive === "prompt") perm = await P.requestPermissions();
+    if (perm.receive !== "granted") return;
+    if (platform === "android" && P.createChannel) await P.createChannel({id: "default", name: "Напоминания и сообщения", importance: 4});
+    P.addListener("registration", async t => {
+      store.set("push", t.value);
+      try { await api("/api/push", {method:"POST", body:JSON.stringify({token: t.value, platform})}); } catch(e){}
+    });
+    // a tap on a notification opens the app: fresh data, so the reminded task is there
+    P.addListener("pushNotificationActionPerformed", () => load());
+    await P.register();
+  } catch(e){}
+}
+const loadFirst = load;
+load = async first => { await loadFirst(first); if (NATIVE && S && initData === "") setupPush(); };
 
 load(true);
 </script>

@@ -19,6 +19,7 @@ import ics
 import jokes
 import parser
 import planner
+import push
 import webapp_auth
 from config import config
 
@@ -87,6 +88,7 @@ async def state(request: web.Request) -> web.Response:
         "partner": {"id": p["id"], "name": p["name"], "avatar": p["avatar"]} if p else None,
         "invite": invite,
         "chat_unread": db.chat_unread(u["couple_id"], uid),
+        "push": push.enabled(),
         "items": [_item(r, today, names) for r in db.items(u["couple_id"])],
         # history: «Выполнено» in Дела and «Куплено недавно» in Покупки
         "done": [_item(r, today, names) for r in db.done_items(u["couple_id"], "task", 60)]
@@ -437,7 +439,29 @@ async def auth_poll(request: web.Request) -> web.Response:
     return web.json_response({"token": token} if token else {"waiting": True})
 
 
+async def push_register(request: web.Request) -> web.Response:
+    """The phone app's push token: {"token": "...", "platform": "android" | "ios"}."""
+    body = await _body(request) or {}
+    token, platform = body.get("token"), body.get("platform")
+    if not isinstance(token, str) or not 20 <= len(token) <= 4096 or platform not in ("android", "ios"):
+        return _err("Неверный токен уведомлений")
+    db.push_register(request["uid"], token, platform)
+    return web.json_response({"ok": True})
+
+
+async def account_delete(request: web.Request) -> web.Response:
+    """«Удалить аккаунт» in the app: the same as /delete in the bot (the stores require it inside the app)."""
+    body = await _body(request) or {}
+    if body.get("confirm") is not True:
+        return _err("Нужно подтверждение")
+    db.delete_user(request["uid"])
+    return web.json_response({"ok": True})
+
+
 async def auth_logout(request: web.Request) -> web.Response:
+    body = await _body(request) or {}
+    if isinstance(body.get("push"), str):  # this phone stops getting the account's notifications
+        db.push_forget(body["push"])
     bearer = request.headers.get("Authorization", "")
     if bearer.startswith("Bearer "):
         db.session_end(bearer[7:].strip())
@@ -479,6 +503,8 @@ def build_app(bot=None) -> web.Application:
     app.router.add_post("/api/settings", settings)
     app.router.add_post("/api/avatar", avatar)
     app.router.add_post("/api/import", import_calendar)
+    app.router.add_post("/api/push", push_register)
+    app.router.add_post("/api/account/delete", account_delete)
     app.router.add_get("/api/chat", chat_get)
     app.router.add_post("/api/chat", chat_post)
     app.router.add_post("/api/projects", project_create)

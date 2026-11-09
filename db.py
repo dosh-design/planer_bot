@@ -163,6 +163,12 @@ def init() -> None:
                 user_id INTEGER,
                 token TEXT
             );
+            CREATE TABLE IF NOT EXISTS push_tokens (
+                token TEXT PRIMARY KEY,         -- one phone's FCM (Android) or APNs (iOS) token
+                user_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                created TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -352,6 +358,7 @@ def delete_user(uid: int) -> None:
         c.execute("DELETE FROM activity WHERE user_id = ?", (uid,))
         c.execute("DELETE FROM messages WHERE author_id = ?", (uid,))
         c.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))  # the phone apps are signed out too
+        c.execute("DELETE FROM push_tokens WHERE user_id = ?", (uid,))
         c.execute("DELETE FROM logins WHERE user_id = ?", (uid,))  # what the person wrote in the chat is theirs
         c.execute("DELETE FROM kv WHERE key = ?", (f"chatread:{uid}",))
         # The phrase waiting for «это что?» is the person's text; counters and hints go too.
@@ -1059,6 +1066,26 @@ def session_user(token: str) -> int | None:
 def session_end(token: str) -> None:
     with closing(_connect()) as c:
         c.execute("DELETE FROM sessions WHERE token_hash = ?", (_hash(token),))
+
+
+# ---------- push tokens of the phone apps ----------
+
+def push_register(uid: int, token: str, platform: str) -> None:
+    """A phone's token belongs to whoever signed in on it last."""
+    with closing(_connect()) as c:
+        c.execute("INSERT INTO push_tokens (token, user_id, platform, created) VALUES (?, ?, ?, ?)"
+                  " ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform",
+                  (token, uid, platform, _stamp()))
+
+
+def push_tokens(uid: int) -> list[sqlite3.Row]:
+    with closing(_connect()) as c:
+        return c.execute("SELECT token, platform FROM push_tokens WHERE user_id = ?", (uid,)).fetchall()
+
+
+def push_forget(token: str) -> None:
+    with closing(_connect()) as c:
+        c.execute("DELETE FROM push_tokens WHERE token = ?", (token,))
 
 
 # ---------- the couple's chat ----------

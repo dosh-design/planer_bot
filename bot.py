@@ -20,6 +20,7 @@ import game
 import jokes
 import parser
 import planner
+import push
 import stt
 from config import config
 from planner import Out, esc
@@ -68,6 +69,7 @@ async def send(bot: Bot, outs: list[Out]) -> None:
     """Deliver messages one by one. A reminder is marked as sent before it gets here, so a hiccup on
     Telegram's side (flood limit, network, 5xx) gets one more try instead of silently losing it."""
     for o in outs:
+        await push.notify(o.chat_id, o.text)  # the same line on the phone apps, when the person has one
         for attempt in (1, 2):
             try:
                 await bot.send_message(o.chat_id, o.text, reply_markup=kb(o.buttons))

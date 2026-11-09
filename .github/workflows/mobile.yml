@@ -21,6 +21,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - uses: gradle/actions/setup-gradle@v4  # caches Gradle and retries its download (a network hiccup broke a run)
       - run: npm ci
       - run: npx cap sync android
       - run: cd android && ./gradlew assembleDebug --no-daemon
