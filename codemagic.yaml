@@ -12,7 +12,7 @@ workflows:
       android_signing:
         - dogovorilis_keystore
     scripts:
-      - npm ci
+      - npm ci --ignore-scripts
       - npx cap sync android
       - cd android && ./gradlew bundleRelease assembleRelease
     artifacts:
@@ -31,7 +31,7 @@ workflows:
     integrations:
       app_store_connect: dogovorilis_asc
     scripts:
-      - npm ci
+      - npm ci --ignore-scripts
       - npx cap sync ios
       - xcode-project use-profiles
       - xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App

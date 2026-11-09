@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4  # caches Gradle and retries its download (a network hiccup broke a run)
-      - run: npm ci
+      - run: npm ci --ignore-scripts  # sharp (icon generator only) downloads binaries at install and can time out
       - run: npx cap sync android
       - run: cd android && ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
