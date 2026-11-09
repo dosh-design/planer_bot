@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 /data/
 mobile/node_modules/
+
+# ThinkRail workspace state
+.thinkrail/
