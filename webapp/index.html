@@ -149,16 +149,17 @@ a.opt{text-decoration:none;color:inherit}
   padding:0 var(--s4);min-height:44px;cursor:pointer;white-space:nowrap}
 .btn.ghost{background:var(--surface-2);color:var(--text)}
 
-/* ============ tabs ============ */
-.tabs{position:sticky;top:0;z-index:3;display:flex;gap:2px;padding:4px;margin:var(--s3) 0 var(--s1);
-  background:var(--surface-2);border-radius:var(--r-m);box-shadow:0 0 0 6px var(--bg)}
-.tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 11.5px/1 var(--font);min-height:48px;
-  border-radius:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 2px;
-  transition:background var(--fast),color var(--fast);white-space:nowrap}
-.tabs button .ic{width:18px;height:18px}
-.tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1)}
-/* five sections: icon over a short label, so they fit down to 320 px */
-@media (max-width:350px){ .tabs{gap:0;padding:3px} .tabs button{font-size:10.5px;letter-spacing:-.35px;padding:0} }
+/* ============ tabs: the bottom bar, in thumb's reach (09.11: like iOS and Android apps) ============ */
+.tabs{flex:none;display:flex;gap:2px;padding:var(--s1) var(--s2) max(var(--s1), var(--safe-bottom));
+  background:var(--surface);border-top:1px solid var(--border)}
+.tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 11.5px/1 var(--font);min-height:52px;
+  border-radius:var(--r-m);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 2px;
+  transition:color var(--fast);white-space:nowrap}
+.tabs button .ic{width:22px;height:22px;padding:3px 14px;box-sizing:content-box;border-radius:var(--r-full);transition:background var(--fast)}
+.tabs button[aria-selected="true"]{color:var(--brand-ink)}
+.tabs button[aria-selected="true"] .ic{background:var(--brand-soft)}
+.kb-open .tabs,.typing .tabs{display:none}  /* typing: the keyboard takes the bottom, the bar comes back after */
+@media (max-width:350px){ .tabs{gap:0;padding-left:2px;padding-right:2px} .tabs button{font-size:10.5px;letter-spacing:-.35px;padding:0} .tabs button .ic{padding:3px 8px} }
 
 /* ============ sections ============ */
 main{animation:in var(--base) var(--ease)}
@@ -362,9 +363,8 @@ main{animation:in var(--base) var(--ease)}
 @keyframes shim{to{transform:translateX(100%)}}
 
 /* ============ composer: a block under the list, never over it ============ */
-.composer{flex:none;padding:var(--s2) var(--s4) max(var(--s2), var(--safe-bottom));background:var(--bg);
-  border-top:1px solid var(--border)}
-.kb-open .composer{padding-bottom:var(--s2)}  /* the home-indicator inset sits under the keyboard */
+.composer{flex:none;padding:var(--s2) var(--s4);background:var(--bg);border-top:1px solid var(--border)}
+.composer[hidden] + .tabs{padding-top:var(--s1)}
 .composer form{display:flex;gap:var(--s2);align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
   padding:3px 3px 3px var(--s4)}
 .composer form:focus-within{border-color:var(--brand)}
@@ -517,13 +517,6 @@ main{animation:in var(--base) var(--ease)}
   <div id="summary"></div>
   <div id="invite"></div>
 </header>
-<nav class="tabs" id="tabs" role="tablist" hidden>
-  <button role="tab" data-tab="home" aria-selected="true"><svg class="ic"><use href="#i-home"/></svg>Главная</button>
-  <button role="tab" data-tab="tasks" aria-selected="false"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
-  <button role="tab" data-tab="month" aria-selected="false"><svg class="ic"><use href="#i-cal"/></svg>Календарь</button>
-  <button role="tab" data-tab="buy" aria-selected="false"><svg class="ic"><use href="#i-bag"/></svg>Покупки</button>
-  <button role="tab" data-tab="projects" aria-selected="false"><svg class="ic"><use href="#i-folder"/></svg>Проекты</button>
-</nav>
 <main id="list" aria-live="polite"></main>
 </div>
 <div class="composer" id="composer" hidden>
@@ -534,6 +527,13 @@ main{animation:in var(--base) var(--ease)}
   </form>
   <p class="hint">Можно голосом: отправьте голосовое боту в чат.</p>
 </div>
+<nav class="tabs" id="tabs" role="tablist" hidden>
+  <button role="tab" data-tab="home" aria-selected="true"><svg class="ic"><use href="#i-home"/></svg>Главная</button>
+  <button role="tab" data-tab="tasks" aria-selected="false"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
+  <button role="tab" data-tab="month" aria-selected="false"><svg class="ic"><use href="#i-cal"/></svg>Календарь</button>
+  <button role="tab" data-tab="buy" aria-selected="false"><svg class="ic"><use href="#i-bag"/></svg>Покупки</button>
+  <button role="tab" data-tab="projects" aria-selected="false"><svg class="ic"><use href="#i-folder"/></svg>Проекты</button>
+</nav>
 </div>
 <div class="sheet" id="sheet" aria-hidden="true"><div role="dialog" aria-modal="true"><div class="grab"></div><div id="sheet-body"></div></div></div>
 <div class="toast" id="toast" role="status"></div>
@@ -973,7 +973,7 @@ async function showSeason(){
   openSeason = true; SEASON = null; tab = "home"; render();
   try { SEASON = await api("/api/season"); if (SEASON.current) S.score = SEASON.current; }
   catch(err){ openSeason = false; toast(err.message, "bad"); }
-  render(); $("tabs").scrollIntoView({block:"start"});
+  render(); $("scroll").scrollTop = 0;
 }
 
 // Дела: everything to do and plan, by whose it is; project steps live in their projects.
@@ -1158,7 +1158,7 @@ async function showProject(id){
   openProject = id; P = null; addSection = null; tab = "projects"; render();
   try { P = (await api(`/api/projects/${id}`)).project; }
   catch(err){ openProject = null; toast(err.message, "bad"); }
-  render(); $("tabs").scrollIntoView({block:"start"});
+  render(); $("scroll").scrollTop = 0;
 }
 async function reloadProject(){
   if (!openProject) return;
@@ -1285,7 +1285,7 @@ function busyHtml(){
 const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 $("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { if (b.dataset.tab === "projects") { openProject = null; P = null; } goTab(b.dataset.tab); } };
 
-function goTab(name){ tab = name; openSeason = false; closeChat(); if (name !== "projects") { openProject = null; P = null; } render(); $("tabs").scrollIntoView({block:"start"}); }
+function goTab(name){ tab = name; openSeason = false; closeChat(); if (name !== "projects") { openProject = null; P = null; } render(); $("scroll").scrollTop = 0; }
 
 const DONE_LINES = ["Опа. Человек слова!", "Готово, как договорились.", "Готово. Вторая половина уже в курсе."];
 document.body.addEventListener("click", async e => {
@@ -1409,6 +1409,7 @@ function photoSheet(){
     <input type="file" id="photo-file" accept="image/*" hidden>
     ${me.avatar ? `<button class="opt danger" data-nophoto="1">${icon("i-trash")}<span>Убрать фото</span></button>` : ""}
     ${!initData && store.get("token") ? `<button class="opt" data-logout="1">${icon("i-left")}<span>Выйти из аккаунта на этом телефоне</span></button>` : ""}
+    <button class="opt" data-myseason="1">${icon("i-trophy")}<span>Наш сезон и ачивки</span></button>
     <a class="opt" href="/privacy" target="_blank" rel="noopener">${icon("i-lock")}<span>Политика конфиденциальности</span></a>
     <button class="opt danger" data-delaccount="1">${icon("i-trash")}<span>Удалить аккаунт</span></button>
     <button class="opt cancel" data-close="1">Отмена</button>`;
@@ -1424,6 +1425,7 @@ function photoSheet(){
   $("sheet").onclick = async e => {
     const b = e.target.closest("button");
     if (e.target === $("sheet") || (b && b.dataset.close)) return closeSheet();
+    if (b && b.dataset.myseason) { closeSheet(); return showSeason(); }
     if (b && b.dataset.delaccount) {
       // Twice, like deleting a stage: the first tap only explains what goes.
       if (!b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = S.partner
@@ -1538,7 +1540,7 @@ function openSheet(it){
     if (b.dataset.edit) { $("edit").hidden = false; b.hidden = true; $("edit").querySelector("input").focus(); return; }
     if (b.dataset.openday) {
       closeSheet(); tab = "month"; calDay = b.dataset.openday; calWeek = monday(new Date(calDay + "T12:00")); calOpen = false;
-      render(); $("tabs").scrollIntoView({block:"start"}); return;
+      render(); $("scroll").scrollTop = 0; return;
     }
     if (b.dataset.del && !b.dataset.sure) { b.dataset.sure = "1"; b.querySelector("span").textContent = "Точно удалить? Нажмите ещё раз"; return; }
     try {
@@ -1608,6 +1610,9 @@ window.addEventListener("resize", fit);
 if (tg && tg.onEvent) tg.onEvent("viewportChanged", fit);
 // iOS scrolls the whole page to reveal a focused field; the shell already moved, so put the page back.
 $("input").addEventListener("focus", () => setTimeout(() => { window.scrollTo(0, 0); fit(); }, 50));
+// a resized window (Android) does not look like «keyboard open» to fit(), so the field says it itself
+$("input").addEventListener("focus", () => matchMedia("(pointer: coarse)").matches && document.body.classList.add("typing"));  // phones only: on a desktop the field keeps focus
+$("input").addEventListener("blur", () => document.body.classList.remove("typing"));
 window.addEventListener("online", () => S || load(true));
 // Sync between the two phones: re-read the state when the app comes back to the screen and every 20 s while it is
 // open, and redraw only if something changed. Never while a sheet is open, a line is being sent or a tick can be undone.
