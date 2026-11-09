@@ -1659,6 +1659,8 @@ async function setupPush(){
     await P.register();
   } catch(e){}
 }
+// outside Telegram the voice goes through the bot all the same: say where
+if (!initData) document.querySelector(".composer .hint").textContent = "Голосовые можно отправлять Telegram-боту @promise_done_bot.";
 const loadFirst = load;
 load = async first => { await loadFirst(first); if (NATIVE && S && initData === "") setupPush(); };
 
