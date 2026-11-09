@@ -155,11 +155,11 @@ a.opt{text-decoration:none;color:inherit}
 .tabs button{flex:1;min-width:0;border:0;background:none;color:var(--text-2);font:700 11.5px/1 var(--font);min-height:52px;
   border-radius:var(--r-m);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 2px;
   transition:color var(--fast);white-space:nowrap}
-.tabs button .ic{width:22px;height:22px;padding:3px 14px;box-sizing:content-box;border-radius:var(--r-full);transition:background var(--fast)}
+.tabs button .ic{width:22px;height:22px;padding:3px 10px;box-sizing:content-box;border-radius:var(--r-full);transition:background var(--fast)}
 .tabs button[aria-selected="true"]{color:var(--brand-ink)}
 .tabs button[aria-selected="true"] .ic{background:var(--brand-soft)}
 .kb-open .tabs,.typing .tabs{display:none}  /* typing: the keyboard takes the bottom, the bar comes back after */
-@media (max-width:350px){ .tabs{gap:0;padding-left:2px;padding-right:2px} .tabs button{font-size:10.5px;letter-spacing:-.35px;padding:0} .tabs button .ic{padding:3px 8px} }
+@media (max-width:350px){ .tabs{gap:0;padding-left:2px;padding-right:2px} .tabs button{font-size:10.5px;letter-spacing:-.35px;padding:0} .tabs button .ic{padding:3px 6px} }
 
 /* ============ sections ============ */
 main{animation:in var(--base) var(--ease)}
@@ -479,6 +479,7 @@ main{animation:in var(--base) var(--ease)}
   <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 8.5a14 14 0 0 1 19 0M5.5 12a9.5 9.5 0 0 1 13 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01M3 3l18 18"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v2.5"/><path d="M4 7.5V17a2.5 2.5 0 0 0 2.5 2.5h12a1.5 1.5 0 0 0 1.5-1.5V9a1.5 1.5 0 0 0-1.5-1.5H6.5A2.5 2.5 0 0 1 4 7.5z"/><path d="M16 13.5h.01"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4.5a3 3 0 0 0 3.7 4.3M16 6h3.5a3 3 0 0 1-3.7 4.3M12 13v3.5M8.5 20h7l-.7-3.5h-5.6z"/></symbol>
   <symbol id="i-gift" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M3.5 9h17M12 9v11M12 9c-1.5-3.5-5.5-4-5.5-1.5S10 9 12 9zM12 9c1.5-3.5 5.5-4 5.5-1.5S14 9 12 9z"/></symbol>
@@ -532,6 +533,7 @@ main{animation:in var(--base) var(--ease)}
   <button role="tab" data-tab="tasks" aria-selected="false"><svg class="ic"><use href="#i-list"/></svg>Дела</button>
   <button role="tab" data-tab="month" aria-selected="false"><svg class="ic"><use href="#i-cal"/></svg>Календарь</button>
   <button role="tab" data-tab="buy" aria-selected="false"><svg class="ic"><use href="#i-bag"/></svg>Покупки</button>
+  <button role="tab" data-tab="pay" aria-selected="false"><svg class="ic"><use href="#i-wallet"/></svg>Платежи</button>
   <button role="tab" data-tab="projects" aria-selected="false"><svg class="ic"><use href="#i-folder"/></svg>Проекты</button>
 </nav>
 </div>
@@ -837,7 +839,7 @@ const PLACEHOLDER = {home:["Добавить дело, покупку или п�
 function render(){
   header();
   const p = S.partner;
-  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === (tab === "tasks" && doFilter === "pay" ? "pay" : tab)));
   const ph = PLACEHOLDER[openChat ? "chat" : tab === "projects" && openProject ? "project" : tab];
   $("input").placeholder = ph[innerWidth <= 360 ? 1 : 0];
   $("input").maxLength = openChat ? 2000 : 500;
@@ -1283,7 +1285,7 @@ function busyHtml(){
 
 // ---------- interactions ----------
 const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { if (b.dataset.tab === "projects") { openProject = null; P = null; } goTab(b.dataset.tab); } };
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (b) { if (b.dataset.tab === "projects") { openProject = null; P = null; } const t = b.dataset.tab; if (t === "pay" || t === "tasks") doFilter = t === "pay" ? "pay" : doFilter === "pay" ? "all" : doFilter; goTab(t === "pay" ? "tasks" : t); } };
 
 function goTab(name){ tab = name; openSeason = false; closeChat(); if (name !== "projects") { openProject = null; P = null; } render(); $("scroll").scrollTop = 0; }
 
