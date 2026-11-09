@@ -139,6 +139,16 @@ def init() -> None:
                 detail TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (couple_id, code)
             );
+            -- Each time a couple earns an achievement again: a good day, a payment in time, a finished project...
+            -- The key names the occasion (a date, a week, an item), so the same occasion counts once. The count of
+            -- rows per code decides bronze, silver and gold; the tiers themselves are rows of game_achievements.
+            CREATE TABLE IF NOT EXISTS game_feats (
+                couple_id INTEGER NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+                code TEXT NOT NULL,
+                key TEXT NOT NULL,
+                at TEXT NOT NULL,
+                PRIMARY KEY (couple_id, code, key)
+            );
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 couple_id INTEGER NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
@@ -188,6 +198,19 @@ def init() -> None:
             c.execute("ALTER TABLE users ADD COLUMN nudge_mode TEXT NOT NULL DEFAULT 'humor'")
         if "avatar" not in ucols:  # the person's own photo for the app, a small JPEG as a data: URL; NULL = the initial
             c.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
+        # Achievements got tiers (bronze, silver, gold). A one-time achievement from before is its bronze; finished
+        # weeks fill in the counts they prove. Only adds rows, never changes old ones: old code ignores them.
+        c.execute("INSERT OR IGNORE INTO game_achievements (couple_id, code, unlocked, detail)"
+                  " SELECT couple_id, CASE code WHEN 'first_done' THEN 'done_total' ELSE code END || ':bronze', unlocked, detail"
+                  " FROM game_achievements WHERE code NOT LIKE '%:%'")
+        for code, cond in (("clean_sheet", "chaos = 0 AND family >= 1"), ("rout", "result = 'family' AND family - chaos >= 5"),
+                           ("big_week", "family >= 15")):
+            c.execute(f"INSERT OR IGNORE INTO game_feats (couple_id, code, key, at)"
+                      f" SELECT couple_id, ?, week, closed FROM game_matches WHERE {cond}", (code,))
+        c.execute("INSERT OR IGNORE INTO game_feats (couple_id, code, key, at) SELECT couple_id, code, 'before-tiers', unlocked"
+                  " FROM game_achievements WHERE code IN ('comeback', 'long_haul')")
+        c.execute("INSERT OR IGNORE INTO game_feats (couple_id, code, key, at) SELECT a.couple_id, 'streak', n.n, a.unlocked"
+                  " FROM game_achievements a, (SELECT '1' AS n UNION SELECT '2' UNION SELECT '3') n WHERE a.code = 'streak'")
         # The game counts from the day it appeared: tasks overdue before that are not the chaos's points.
         c.execute("INSERT OR IGNORE INTO kv (key, value) VALUES ('game_start', ?)", (local_now().date().isoformat(),))
 
@@ -315,7 +338,7 @@ def _join(c: _sqlite.Connection, uid: int, code: str) -> str:
         c.execute("UPDATE items SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         c.execute("UPDATE messages SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         # The score and achievements of the one who started alone join the couple's; the rest goes with the old couple.
-        for table in ("game_events", "game_matches", "game_achievements"):
+        for table in ("game_events", "game_matches", "game_achievements", "game_feats"):
             c.execute(f"UPDATE OR IGNORE {table} SET couple_id = ? WHERE couple_id = ?", (cid, old_cid))
         c.execute("DELETE FROM couples WHERE id = ?", (old_cid,))
     return "ok"
@@ -903,6 +926,36 @@ def family_points(couple_id: int) -> int:
                          (couple_id,)).fetchone()[0]
 
 
+def family_between(couple_id: int, since: str, until: str) -> int:
+    """Family points with `at` in [since, until): «YYYY-MM-DD» bounds are whole local days."""
+    with closing(_connect()) as c:
+        return c.execute("SELECT COUNT(*) FROM game_events WHERE couple_id = ? AND side = 'family' AND revoked = 0"
+                         " AND at >= ? AND at < ?", (couple_id, since, until)).fetchone()[0]
+
+
+def family_days(couple_id: int, week: str) -> int:
+    """On how many different days of the week the family scored."""
+    with closing(_connect()) as c:
+        return c.execute("SELECT COUNT(DISTINCT substr(at, 1, 10)) FROM game_events WHERE couple_id = ?"
+                         " AND side = 'family' AND revoked = 0 AND week = ?", (couple_id, week)).fetchone()[0]
+
+
+def family_chores(couple_id: int) -> int:
+    """Family points for turns of weekly house chores (items that repeat on a weekday)."""
+    with closing(_connect()) as c:
+        return c.execute("SELECT COUNT(*) FROM game_events e JOIN items i ON i.id = e.item_id AND i.couple_id = e.couple_id"
+                         " WHERE e.couple_id = ? AND e.side = 'family' AND e.revoked = 0 AND i.weekday IS NOT NULL",
+                         (couple_id,)).fetchone()[0]
+
+
+def project_open_steps(project_id: int, couple_id: int) -> tuple[int, int]:
+    """(open steps, all steps) of the couple's project."""
+    with closing(_connect()) as c:
+        r = c.execute("SELECT COALESCE(SUM(status = 'open'), 0), COUNT(*) FROM items WHERE project_id = ? AND couple_id = ?",
+                      (project_id, couple_id)).fetchone()
+    return r[0], r[1]
+
+
 def weeks_to_close(before: str) -> list[sqlite3.Row]:
     """(couple_id, week) of past weeks that had points and have no result yet, oldest first."""
     with closing(_connect()) as c:
@@ -930,6 +983,19 @@ def unlock(couple_id: int, code: str, detail: str) -> bool:
     with closing(_connect()) as c:
         return c.execute("INSERT OR IGNORE INTO game_achievements (couple_id, code, unlocked, detail) VALUES (?, ?, ?, ?)",
                          (couple_id, code, _stamp(), detail)).rowcount == 1
+
+
+def add_feat(couple_id: int, code: str, key: str) -> bool:
+    """True only the first time this occasion counts for this achievement."""
+    with closing(_connect()) as c:
+        return c.execute("INSERT OR IGNORE INTO game_feats (couple_id, code, key, at) VALUES (?, ?, ?, ?)",
+                         (couple_id, code, key, _stamp())).rowcount == 1
+
+
+def feat_counts(couple_id: int) -> dict:
+    with closing(_connect()) as c:
+        return {r[0]: r[1] for r in c.execute("SELECT code, COUNT(*) FROM game_feats WHERE couple_id = ? GROUP BY code",
+                                              (couple_id,))}
 
 
 def achievements(couple_id: int) -> dict:

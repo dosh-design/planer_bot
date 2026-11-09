@@ -19,6 +19,8 @@
   --warning:#E7A93E; --warning-ink:#94620F; --warning-soft:#FFF5D9;
   --success:#65966B; --success-ink:#3F7346; --success-soft:#EAF4E8;
   --border:#F0E2D4; --control:#A08A7A;
+  /* medals of the achievements: the pip/border colour and a soft card tint */
+  --bronze:#B87333; --bronze-soft:#F8E9DC; --silver:#8E98A4; --silver-soft:#EFF2F5; --gold:#D4A017; --gold-soft:#FFF4CC;
   --shadow-1:0 1px 2px rgba(52,42,37,.05);
   --shadow-2:0 10px 30px rgba(52,42,37,.12);
   --scrim:rgba(36,26,20,.42);
@@ -49,6 +51,7 @@
   --warning:#F0BC5E; --warning-ink:#F0BC5E; --warning-soft:#36291A;
   --success:#8DBF8F; --success-ink:#A3D0A5; --success-soft:#1E2B20;
   --border:#362C26; --control:#8A786C;
+  --bronze:#D08B4F; --bronze-soft:#33241A; --silver:#B4BCC6; --silver-soft:#272A2E; --gold:#E8B930; --gold-soft:#352B12;
   --shadow-1:none; --shadow-2:0 10px 30px rgba(0,0,0,.45); --scrim:rgba(0,0,0,.55);
 }
 @media (prefers-color-scheme: dark){
@@ -60,6 +63,7 @@
     --warning:#F0BC5E; --warning-ink:#F0BC5E; --warning-soft:#36291A;
     --success:#8DBF8F; --success-ink:#A3D0A5; --success-soft:#1E2B20;
     --border:#362C26; --control:#8A786C;
+    --bronze:#D08B4F; --bronze-soft:#33241A; --silver:#B4BCC6; --silver-soft:#272A2E; --gold:#E8B930; --gold-soft:#352B12;
     --shadow-1:none; --shadow-2:0 10px 30px rgba(0,0,0,.45); --scrim:rgba(0,0,0,.55);
   }
 }
@@ -244,6 +248,18 @@ main{animation:in var(--base) var(--ease)}
 .ach .locked .em{filter:grayscale(1);opacity:.45}
 .ach .locked b{color:var(--text-2)}
 .ach .when{color:var(--success-ink);font-weight:700}
+.ach .bronze{border-color:var(--bronze);background:var(--bronze-soft)}
+.ach .silver{border-color:var(--silver);background:var(--silver-soft)}
+.ach .gold{border-color:var(--gold);background:var(--gold-soft)}
+.ach .head{display:flex;align-items:center;justify-content:space-between;gap:var(--s2)}
+.ach .pips{display:flex;gap:4px}
+.ach .pips i{width:10px;height:10px;border-radius:var(--r-full);border:1.5px solid var(--control);background:transparent}
+.ach .pips i.bronze{border-color:var(--bronze);background:var(--bronze)}
+.ach .pips i.silver{border-color:var(--silver);background:var(--silver)}
+.ach .pips i.gold{border-color:var(--gold);background:var(--gold)}
+.ach .tier{display:block;margin-top:2px;font:var(--t-micro);text-transform:uppercase;letter-spacing:.4px;color:var(--text-2)}
+.ach .next{margin-top:var(--s2)}
+.ach .next .progress{margin:4px 0 0}
 .rules{margin:0;padding:var(--s2) 0 var(--s2) 18px;font:500 14px/1.45 var(--font);color:var(--text-2)}
 .rules li + li{margin-top:6px}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:var(--s2) 0}
@@ -605,10 +621,26 @@ async function api(path, opts={}){
   if (!r.ok) throw new ApiError(data.error || "Сервер ответил ошибкой. Попробуйте ещё раз.", r.status);
   return data;
 }
+// Demo medals: a few achievements at different tiers, so the screen shows how the ladder looks.
+function demoAchievements(){
+  const forms = {d:["дело", "дела", "дел"], w:["неделя", "недели", "недель"], day:["день", "дня", "дней"], p:["платёж", "платежа", "платежей"]};
+  const mk = (code, icon, title, about, needs, f, count) => {
+    const tiers = ["bronze", "silver", "gold"].map((t, i) => ({tier:t, name:TIER_LABEL[t], need:needs[i],
+      need_text:`${needs[i]} ${plural(needs[i], ...forms[f])}`, unlocked:count >= needs[i] ? "2026-10-20 10:00" : null}));
+    const got = tiers.filter(t => t.unlocked);
+    return {code, icon, title, about, count, tiers, tier:got.length ? got[got.length - 1].tier : null, next:tiers.find(t => !t.unlocked) || null};
+  };
+  return [mk("done_total", "🤝", "Сделано вместе", "Дела, которые семья довела до конца.", [1, 50, 200], "d", 64),
+          mk("cozy_home", "🏡", "Уютный дом", "Сделанные обязанности по дому.", [5, 25, 100], "d", 31),
+          mk("bills", "💳", "Без пени", "Платежи, отмеченные в свой день или раньше.", [1, 6, 12], "p", 12),
+          mk("busy_day", "⚡", "Продуктивный день", "Дни, когда семья сделала 5 дел и больше.", [1, 5, 15], "day", 3),
+          mk("clean_sheet", "🧼", "Чистый лист", "Недели без единой просроченной задачи.", [1, 4, 12], "w", 1),
+          mk("night_owls", "🦉", "Ночная смена", "Дела, сделанные после 23:00.", [1, 10, 30], "d", 0)];
+}
 function demoApi(path, opts){
   if (path === "/api/state") return S || demoState();
   if (path.startsWith("/api/chat")) return opts.method === "POST" ? {message:{id:Date.now(), author:1, text:JSON.parse(opts.body).text, at:new Date().toISOString().slice(0, 16).replace("T", " ")}} : {messages:[]};
-  if (path === "/api/season") return {current:S.score, last:null, history:[], streak:0, achievements:[], rules:["Пример: в демо-режиме очков нет."],
+  if (path === "/api/season") return {current:S.score, last:null, history:[], streak:0, achievements:demoAchievements(), rules:["Пример: в демо-режиме очков нет."],
                                       nudge_mode:"humor", nudge_modes:{humor:"С юмором", soft:"Мягко", min:"Минимум", off:"Выключены"}};
   const m = path.match(/\/api\/items\/(\d+)/);
   if (m && opts.method === "DELETE" || m && path.endsWith("/done")) S.items = S.items.filter(i => i.id != m[1]);
@@ -905,7 +937,7 @@ function seasonHtml(){
   const back = `<button class="back" data-back="1">${icon("i-left")}Главная</button>`;
   if (!SEASON) return back + `<div class="skel"></div><div class="skel"></div>`;
   const cur = SEASON.current, passed = 7 - cur.days_left + 1, pct = Math.round(100 * Math.min(passed, 7) / 7);
-  const got = SEASON.achievements.filter(a => a.unlocked).length;
+  const medals = SEASON.achievements.reduce((n, a) => n + (a.tiers || []).filter(t => t.unlocked).length, 0);
   const modes = Object.entries(SEASON.nudge_modes || {});
   return back + `<div class="season"><h2>Наш сезон</h2><p>Мы против забытых дел · неделя ${esc(cur.label)}</p>
       <div class="vs"><div class="fam"><b>${cur.family}</b><span>Мы</span></div><div class="colon">:</div><div><b>${cur.chaos}</b><span>Забытые дела</span></div></div>
@@ -916,13 +948,25 @@ function seasonHtml(){
     + (SEASON.history.length
         ? `<div class="panel">${SEASON.history.map(m => `<div class="match"><span>${esc(m.label)}</span><b>${m.family} : ${m.chaos}</b><span class="chip ${m.result}">${RESULT[m.result]}</span></div>`).join("")}</div>`
         : `<div class="calm">${icon("i-trophy")}<span>Первый матч идёт прямо сейчас. Итог недели появится здесь.</span></div>`)
-    + `<div class="sec"><h2>Достижения</h2><span class="count">${got} из ${SEASON.achievements.length}</span></div>
-       <div class="ach">${SEASON.achievements.map(a => `<div class="${a.unlocked ? "" : "locked"}"><span class="em" aria-hidden="true">${a.icon}</span><b>${esc(a.title)}</b>
-         <small>${esc(a.about)}</small>${a.unlocked ? `<small class="when">${esc(a.detail || "")} Получено ${esc(shortDate(a.unlocked.slice(0, 10)))}.</small>` : ""}</div>`).join("")}</div>`
+    + `<div class="sec"><h2>Достижения</h2><span class="count">${medals} из ${SEASON.achievements.length * 3}</span></div>
+       <div class="ach">${SEASON.achievements.map(achHtml).join("")}</div>`
     + `<div class="sec"><h2>Как считаются очки</h2></div><div class="panel"><ul class="rules">${SEASON.rules.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>`
     + (modes.length ? `<div class="sec"><h2>Напоминания о просрочке</h2></div>
        <div class="modes" role="group" aria-label="Напоминания о просрочке">${modes.map(([k, v]) => `<button data-nmode="${k}" aria-pressed="${SEASON.nudge_mode === k}">${esc(v)}</button>`).join("")}</div>
        <p class="hint-small" style="margin:0;font:500 13px/1.4 var(--font);color:var(--text-2)">С юмором: на 2, 4 и 7-й день после срока, дальше всё реже. Мягко: без сарказма. Минимум: только 2-й и 7-й день. Напоминания на время, которое вы поставили сами, приходят всегда.</p>` : "");
+}
+// One achievement: three pips (bronze, silver, gold), the tier reached and how far the next one is.
+const TIER_LABEL = {bronze:"Бронза", silver:"Серебро", gold:"Золото"};
+const TIER_TO = {bronze:"до бронзы", silver:"до серебра", gold:"до золота"};
+function achHtml(a){
+  const tiers = a.tiers || [], nxt = a.next;
+  const pips = `<span class="pips" role="img" aria-label="${a.tier ? TIER_LABEL[a.tier] : "Ещё не получено"}">${tiers.map(t => `<i class="${t.unlocked ? t.tier : ""}" title="${esc(t.name)}: ${esc(t.need_text)}"></i>`).join("")}</span>`;
+  const pct = nxt ? Math.round(100 * Math.min(a.count, nxt.need) / nxt.need) : 100;
+  const next = nxt ? `<div class="next"><small>${a.code === "streak" ? `Лучшая серия: ${a.count} из ${nxt.need}` : `${a.count} из ${nxt.need}`} ${TIER_TO[nxt.tier]}</small>
+       <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(nxt.name)}: ${esc(nxt.need_text)}"><i style="width:${pct}%;background:var(--${nxt.tier})"></i></div></div>`
+     : `<small class="when">Высшая ступень взята!</small>`;
+  return `<div class="${a.tier || "locked"}"><div class="head"><span class="em" aria-hidden="true">${a.icon}</span>${pips}</div><b>${esc(a.title)}</b>
+     ${a.tier ? `<span class="tier">${TIER_LABEL[a.tier]}</span>` : ""}<small>${esc(a.about)}</small>${next}</div>`;
 }
 async function showSeason(){
   openSeason = true; SEASON = null; tab = "home"; render();

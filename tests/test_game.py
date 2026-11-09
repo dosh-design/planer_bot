@@ -14,6 +14,7 @@ import planner
 from test_bot import FakeBot, message
 from test_web import client, init_data  # noqa: F401  (client is a fixture)
 
+STREAK = 3  # the bronze of «Победная серия»
 MON = dt.date(2026, 10, 19)  # the week 19.10–25.10
 WEEK = MON.isoformat()
 NEXT = (MON + dt.timedelta(days=7)).isoformat()
@@ -83,7 +84,7 @@ def test_doing_an_overdue_task_still_scores_and_unlocks_comeback(couple, clock):
     planner.tick(at(clock, dt.date(2026, 10, 21)))
     d = planner.complete(2, iid)
     assert d.scored and score(couple) == (1, 1)
-    assert "comeback" in db.achievements(couple)
+    assert "comeback:bronze" in db.achievements(couple)
     assert [n.chat_id for n in d.notes if "Возвращение недели" in n.text] == [1, 2]  # to both, as a team
 
 
@@ -313,12 +314,12 @@ def test_a_failing_couple_does_not_stop_the_others(couple, clock, monkeypatch):
 
 # ---------- achievements ----------
 
-def test_first_done_is_given_once(couple):
+def test_first_done_is_the_bronze_of_done_together_given_once(couple):
     d = planner.complete(2, task(couple))
-    assert [n.chat_id for n in d.notes if "«Первое дело»" in n.text] == [1, 2]
+    assert [n.chat_id for n in d.notes if "🥉 Бронза: «Сделано вместе»" in n.text] == [1, 2]
     d = planner.complete(2, task(couple, "Ты обещал повесить полку"))
-    assert not [n for n in d.notes if n.text.startswith("🏅")]
-    assert list(db.achievements(couple)) == ["first_done"]
+    assert not [n for n in d.notes if "Бронза" in n.text]
+    assert list(db.achievements(couple)) == ["done_total:bronze"]
 
 
 def test_long_haul_counts_real_dates(couple, clock):
@@ -326,46 +327,46 @@ def test_long_haul_counts_real_dates(couple, clock):
     old = task(couple, "Ты обещал повесить полку")  # both written down on 20.10
     at(clock, dt.date(2026, 10, 20) + dt.timedelta(days=game.LONG_HAUL_DAYS - 1))
     planner.complete(2, iid)
-    assert "long_haul" not in db.achievements(couple)
+    assert "long_haul:bronze" not in db.achievements(couple)
     at(clock, dt.date(2026, 10, 20) + dt.timedelta(days=30))
     d = planner.complete(2, old)
-    assert "long_haul" in db.achievements(couple)
+    assert "long_haul:bronze" in db.achievements(couple)
     assert any("ждало 30 дней" in n.text for n in d.notes)
 
 
 def test_clean_sheet_only_without_real_overdue(couple, clock):
     _play(couple, clock, 2, 1)
     planner.tick(at(clock, dt.date(2026, 10, 26), 10))
-    assert "clean_sheet" not in db.achievements(couple)
+    assert "clean_sheet:bronze" not in db.achievements(couple)
     _play(couple, clock, 2, 0, MON + dt.timedelta(days=7))
     out = _results(planner.tick(at(clock, dt.date(2026, 11, 2), 10)))
-    assert "clean_sheet" in db.achievements(couple) and "Чистый лист" in out[0].text
+    assert "clean_sheet:bronze" in db.achievements(couple) and "Чистый лист" in out[0].text
 
 
 def test_clean_sheet_needs_a_whole_week_watched_by_the_game(couple, clock):
     db.kv_set("game_start", "2026-10-21")  # the game appeared on Wednesday of that week
     _play(couple, clock, 2, 0)
     planner.tick(at(clock, dt.date(2026, 10, 26), 10))
-    assert "clean_sheet" not in db.achievements(couple)
+    assert "clean_sheet:bronze" not in db.achievements(couple)
 
 
 def test_rout_threshold(couple, clock):
     _play(couple, clock, game.ROUT_MARGIN, 1)  # won by one point less than the margin
     planner.tick(at(clock, dt.date(2026, 10, 26), 10))
-    assert "rout" not in db.achievements(couple)
+    assert "rout:bronze" not in db.achievements(couple)
     _play(couple, clock, game.ROUT_MARGIN, 0, MON + dt.timedelta(days=7))
     planner.tick(at(clock, dt.date(2026, 11, 2), 10))
-    assert "rout" in db.achievements(couple)
+    assert "rout:bronze" in db.achievements(couple)
 
 
 def test_streak_counts_weekly_wins_back_to_back(couple, clock):
-    for w in range(game.STREAK_WEEKS - 1):
+    for w in range(STREAK - 1):
         _play(couple, clock, 2, 0, MON + dt.timedelta(days=7 * w))
-    planner.tick(at(clock, MON + dt.timedelta(days=7 * (game.STREAK_WEEKS - 1)), 10))
-    assert "streak" not in db.achievements(couple)
-    _play(couple, clock, 2, 0, MON + dt.timedelta(days=7 * (game.STREAK_WEEKS - 1)))
-    planner.tick(at(clock, MON + dt.timedelta(days=7 * game.STREAK_WEEKS), 10))
-    assert "streak" in db.achievements(couple)
+    planner.tick(at(clock, MON + dt.timedelta(days=7 * (STREAK - 1)), 10))
+    assert "streak:bronze" not in db.achievements(couple)
+    _play(couple, clock, 2, 0, MON + dt.timedelta(days=7 * (STREAK - 1)))
+    planner.tick(at(clock, MON + dt.timedelta(days=7 * STREAK), 10))
+    assert "streak:bronze" in db.achievements(couple)
 
 
 def test_streak_is_not_made_of_tasks_or_broken_weeks(couple, clock):
@@ -373,7 +374,7 @@ def test_streak_is_not_made_of_tasks_or_broken_weeks(couple, clock):
     _play(couple, clock, 2, 0, MON + dt.timedelta(days=14))  # a week without a match in between
     _play(couple, clock, 2, 0, MON + dt.timedelta(days=21))
     planner.tick(at(clock, MON + dt.timedelta(days=28), 10))
-    assert len(db.matches(couple)) == 3 and "streak" not in db.achievements(couple)
+    assert len(db.matches(couple)) == 3 and "streak:bronze" not in db.achievements(couple)
 
 
 def test_client_cannot_write_points(couple):
@@ -459,8 +460,8 @@ async def test_bot_and_app_show_the_same_score(client, couple):  # noqa: F811
     text = m.answers[0][0]
     cur = season["current"]
     assert f"Мы {cur['family']} : {cur['chaos']} Забытые дела" in text
-    assert [a["code"] for a in season["achievements"] if a["unlocked"]] == ["first_done"]
-    assert "Первое дело" in text and len(season["achievements"]) == len(game.ACHIEVEMENTS)
+    assert [(a["code"], a["tier"]) for a in season["achievements"] if a["unlocked"]] == [("done_total", "bronze")]
+    assert "🥉 Сделано вместе" in text and len(season["achievements"]) == len(game.ACHIEVEMENTS)
 
 
 async def test_bot_done_button_shows_the_score(couple):
@@ -523,7 +524,7 @@ def test_solo_points_join_the_couple(clock):
     assert score(solo) == (1, 0)
     assert db.join(2, db.invite_code(1)) == "ok"
     cid = db.user(1)["couple_id"]
-    assert score(cid) == (1, 0) and "first_done" in db.achievements(cid)
+    assert score(cid) == (1, 0) and "done_total:bronze" in db.achievements(cid)
 
 
 def _solo_task(uid):
